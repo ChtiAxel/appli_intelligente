@@ -2,7 +2,7 @@
 
 __Membres du groupe :__
 - Axel NAVE
+- Raphael DEROO
 - Rémy RAMPELBERGHE
 - Noa GAILLARD
-- Raphael DEROO
 
