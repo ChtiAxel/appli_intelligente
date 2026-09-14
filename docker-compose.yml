@@ -1,0 +1,46 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: appia
+      DB_USER: appia
+      DB_PASSWORD: appia_password
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+  db:
+    image: mariadb:11.1
+    environment:
+      MARIADB_DATABASE: appia
+      MARIADB_USER: appia
+      MARIADB_PASSWORD: appia_password
+      MARIADB_ROOT_PASSWORD: root_password
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./src/NaturSQL/docs/bdd/appia.sql:/docker-entrypoint-initdb.d/01-appia.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  mariadb_data:
+  ollama_data:
