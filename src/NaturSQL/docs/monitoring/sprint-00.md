@@ -21,3 +21,5 @@ US-08 : En tant qu'utilisateur connecté, je veux pouvoir modifier mon nom ou mo
 US-09 : En tant qu'utilisateur, je veux pouvoir me déconnecter de l'application pour fermer ma session de manière sécurisée.
 
 US-10 : En tant que visiteur non authentifié, je veux être automatiquement redirigé vers la page de login si j'essaie d'accéder à l'application.
+
+US-10 : En tant que developpeur, je veux que les identifiants soient stockés en base de données
