@@ -1,5 +1,7 @@
 SPRINT 00 :
 
+US-00 : En tant que développeur je veux créer une base de données d'authentification pour sotcker les utilisateurs.
+
 US-01 : En tant qu'utilisateur non inscrit, je veux pouvoir accéder à une page d'inscription (/register) pour créer un nouveau compte.
 
 US-02 : En tant qu'utilisateur, je veux que mon mot de passe soit haché et sécurisé en base de données pour garantir la confidentialité de mes identifiants.
