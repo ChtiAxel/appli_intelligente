@@ -1,11 +1,13 @@
 """Gradio application entry point.
 
-Implements the authentication screens (Sign In / Sign Up / Profil)
+Implements the authentication screens (Connexion / Inscription / Profil)
 from the Figma mockup (docs/mockup/AppliIntelligent.png), wired to the
 real `appia` database through `service.auth.AuthService` (see
 docs/monitoring/sprint-00.md, US-01 to US-09).
 
 Login uses an auto-generated "nom.prenom" identifiant, not an email.
+Interface entièrement en français, avec un en-tête et un pied de page
+communs à tout le site.
 """
 
 from __future__ import annotations
@@ -27,19 +29,22 @@ html, body {
     --background-fill-secondary: #ffffff !important;
     --block-background-fill: #ffffff !important;
 }
-#auth-shell {
-    max-width: 420px;
-    margin: 40px auto 0 auto;
-    padding: 0 20px;
+
+/* ---------- en-tete ---------- */
+.site-header {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px 32px;
+    border-bottom: 1px solid #ececec;
+    background: #ffffff;
 }
 .brand-row {
     display: flex;
     align-items: center;
     gap: 8px;
     color: #111111;
-    font-weight: 600;
-    font-size: 14px;
-    padding: 4px 4px 20px 4px;
+    font-weight: 700;
+    font-size: 15px;
 }
 .brand-row .brand-icon {
     width: 16px;
@@ -48,6 +53,13 @@ html, body {
     transform: rotate(45deg);
     display: inline-block;
     flex-shrink: 0;
+}
+
+/* ---------- contenu central ---------- */
+#auth-shell {
+    max-width: 420px;
+    margin: 40px auto 0 auto;
+    padding: 0 20px;
 }
 .auth-card {
     background: #ffffff !important;
@@ -90,48 +102,19 @@ html, body {
 .auth-card button.primary:hover { background: #2a2a2a !important; }
 .auth-links {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    margin-top: 10px !important;
+    margin-top: 12px !important;
 }
 .auth-links button {
     background: none !important;
     border: none !important;
     box-shadow: none !important;
-    color: #555555 !important;
+    color: #111111 !important;
+    text-decoration: underline !important;
     font-size: 12px !important;
     padding: 0 !important;
     min-width: 0 !important;
-}
-.auth-links button.link-underline { text-decoration: underline !important; color: #111111 !important; }
-#legal-footer {
-    max-width: 420px;
-    margin: 20px auto 40px auto;
-    padding: 0 20px;
-    color: #333333;
-}
-#legal-footer .legal-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 13px;
-    color: #111111;
-    margin-bottom: 8px;
-}
-#legal-footer .legal-title-row .brand-icon {
-    width: 14px;
-    height: 14px;
-    border: 2px solid #111111;
-    transform: rotate(45deg);
-    display: inline-block;
-}
-#legal-footer a {
-    display: block;
-    color: #666666 !important;
-    text-decoration: none;
-    font-size: 12px;
-    margin-top: 5px;
 }
 .status-msg { min-height: 20px; font-size: 13px; margin-top: 8px; }
 .status-msg.error { color: #d64545 !important; }
@@ -173,19 +156,68 @@ html, body {
     text-decoration: underline;
     font-size: 12px !important;
 }
+
+/* ---------- pied de page ---------- */
+.site-footer {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 48px;
+    padding: 22px 32px 28px 32px;
+    border-top: 1px solid #ececec;
+    background: #ffffff;
+}
+.site-footer .footer-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.site-footer .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    color: #111111;
+}
+.site-footer .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 20px;
+    row-gap: 6px;
+}
+.site-footer .footer-links a {
+    color: #666666;
+    text-decoration: none;
+    font-size: 12px;
+}
+.site-footer .footer-links a:hover { text-decoration: underline; }
+.site-footer .footer-copy {
+    font-size: 11px;
+    color: #999999;
+    margin-top: 4px;
+}
 """
 
-BRAND_HTML = (
+HEADER_HTML = (
+    '<div class="site-header">'
     '<div class="brand-row"><span class="brand-icon"></span><span>NaturSQL</span></div>'
+    "</div>"
 )
 
-LEGAL_HTML = """
-<div id="legal-footer">
-  <div class="legal-title-row"><span class="brand-icon"></span><span>Legal</span></div>
-  <a href="#">Legal Notice</a>
-  <a href="#">Privacy Policy</a>
-  <a href="#">Cookie management</a>
-  <a href="#">General Terms of Use</a>
+FOOTER_HTML = """
+<div class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand"><span class="brand-icon"></span><span>NaturSQL</span></div>
+    <div class="footer-links">
+      <a href="#">Mentions légales</a>
+      <a href="#">Politique de confidentialité</a>
+      <a href="#">Gestion des cookies</a>
+      <a href="#">Conditions générales d'utilisation</a>
+    </div>
+    <div class="footer-copy">© 2026 NaturSQL — IUT Littoral Côte d'Opale</div>
+  </div>
 </div>
 """
 
@@ -198,7 +230,7 @@ def _status_html(message: str, ok: bool) -> str:
 
 
 def build_app():
-    """Build the Sign In / Sign Up / Profil Gradio app."""
+    """Build the Connexion / Inscription / Profil Gradio app."""
     import gradio as gr
 
     from NaturSQL.service.auth import AuthService
@@ -208,9 +240,10 @@ def build_app():
     with gr.Blocks(css=CUSTOM_CSS, title="NaturSQL", theme=gr.themes.Default()) as demo:
         session_user = gr.State(None)  # dataclasses.User | None
 
-        # ---------------------------------------------------------- Sign In
+        gr.HTML(HEADER_HTML)
+
+        # ---------------------------------------------------------- Connexion
         with gr.Column(visible=True, elem_id="auth-shell") as signin_page:
-            gr.HTML(BRAND_HTML)
             with gr.Column(elem_classes=["auth-card"]):
                 gr.HTML('<div class="auth-title">NaturSQL</div>')
                 gr.HTML(
@@ -218,28 +251,18 @@ def build_app():
                     "Tous les champs sont obligatoires.</div>"
                 )
                 signin_username = gr.Textbox(
-                    label="Identifiant *", placeholder="nom.prenom"
+                    label="Identifiant *", placeholder="dupont.jean"
                 )
                 signin_password = gr.Textbox(
                     label="Mot de passe *", type="password", placeholder="Mot de passe"
                 )
                 signin_status = gr.HTML()
-                signin_button = gr.Button("Sign In", variant="primary")
+                signin_button = gr.Button("Se connecter", variant="primary")
                 with gr.Row(elem_classes=["auth-links"]):
-                    forgot_from_signin = gr.Button(
-                        "Forgot password?", size="sm", variant="secondary"
-                    )
-                    go_to_signup = gr.Button(
-                        "Create an account",
-                        size="sm",
-                        variant="secondary",
-                        elem_classes=["link-underline"],
-                    )
-            gr.HTML(LEGAL_HTML)
+                    go_to_signup = gr.Button("Créer un compte", size="sm", variant="secondary")
 
-        # ---------------------------------------------------------- Sign Up
+        # ---------------------------------------------------------- Inscription
         with gr.Column(visible=False, elem_id="auth-shell") as signup_page:
-            gr.HTML(BRAND_HTML)
             with gr.Column(elem_classes=["auth-card"]):
                 gr.HTML('<div class="auth-title">NaturSQL</div>')
                 gr.HTML(
@@ -247,51 +270,42 @@ def build_app():
                     "Tous les champs sont obligatoires. Votre identifiant de connexion "
                     "(nom.prenom) sera généré automatiquement.</div>"
                 )
-                signup_first_name = gr.Textbox(label="First Name *", placeholder="Prénom")
-                signup_last_name = gr.Textbox(label="Last Name *", placeholder="Nom")
+                signup_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
+                signup_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
                 signup_password = gr.Textbox(
-                    label="Password *",
+                    label="Mot de passe *",
                     type="password",
                     placeholder="Mot de passe",
                     info="8 caractères min., 1 majuscule, 1 chiffre, 1 caractère spécial.",
                 )
                 signup_confirm = gr.Textbox(
-                    label="Confirm password *",
+                    label="Confirmer le mot de passe *",
                     type="password",
                     placeholder="Confirmer le mot de passe",
                 )
                 signup_status = gr.HTML()
-                signup_button = gr.Button("Sign Up", variant="primary")
+                signup_button = gr.Button("S'inscrire", variant="primary")
                 with gr.Row(elem_classes=["auth-links"]):
-                    forgot_from_signup = gr.Button(
-                        "Forgot password?", size="sm", variant="secondary"
-                    )
-                    go_to_signin = gr.Button(
-                        "Sign In",
-                        size="sm",
-                        variant="secondary",
-                        elem_classes=["link-underline"],
-                    )
-            gr.HTML(LEGAL_HTML)
+                    go_to_signin = gr.Button("Se connecter", size="sm", variant="secondary")
 
         # ---------------------------------------------------------- Profil
         with gr.Column(visible=False, elem_id="auth-shell") as profile_page:
-            gr.HTML(BRAND_HTML)
             with gr.Row(elem_id="profile-card-row"):
                 profile_card = gr.HTML()
                 disconnect_button = gr.Button(
-                    "Disconnect", variant="stop", elem_id="disconnect-btn", scale=0
+                    "Déconnexion", variant="stop", elem_id="disconnect-btn", scale=0
                 )
             with gr.Row(elem_classes=["edit-link"]):
-                edit_profile_button = gr.Button("Edit profile", size="sm")
+                edit_profile_button = gr.Button("Modifier le profil", size="sm")
                 save_profile_button = gr.Button(
-                    "Save", visible=False, variant="primary", size="sm"
+                    "Enregistrer", visible=False, variant="primary", size="sm"
                 )
             with gr.Column(visible=False) as profile_edit_form:
-                edit_first_name = gr.Textbox(label="First Name *", placeholder="Prénom")
-                edit_last_name = gr.Textbox(label="Last Name *", placeholder="Nom")
+                edit_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
+                edit_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
             profile_status = gr.HTML()
-            gr.HTML(LEGAL_HTML)
+
+        gr.HTML(FOOTER_HTML)
 
         # ------------------------------------------------------- callbacks
 
@@ -350,7 +364,7 @@ def build_app():
                     result.message, ok=False
                 )
             # US-03: message de confirmation (avec l'identifiant généré) puis
-            # redirection vers /login.
+            # redirection vers la page de connexion.
             gr.Info(result.message)
             return (
                 gr.update(visible=False),
@@ -377,20 +391,6 @@ def build_app():
 
         go_to_signup.click(show_signup, outputs=[signin_page, signup_page])
         go_to_signin.click(show_signin, outputs=[signup_page, signin_page])
-        forgot_from_signin.click(
-            lambda: _status_html(
-                "Contactez un administrateur pour réinitialiser votre mot de passe.",
-                ok=True,
-            ),
-            outputs=signin_status,
-        )
-        forgot_from_signup.click(
-            lambda: _status_html(
-                "Contactez un administrateur pour réinitialiser votre mot de passe.",
-                ok=True,
-            ),
-            outputs=signup_status,
-        )
 
         def do_disconnect():
             # US-09 : déconnexion -> retour à la page de connexion (US-10)
