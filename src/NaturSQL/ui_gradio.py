@@ -4,39 +4,59 @@ Implements the authentication screens (Sign In / Sign Up / Profil)
 from the Figma mockup (docs/mockup/AppliIntelligent.png), wired to the
 real `appia` database through `service.auth.AuthService` (see
 docs/monitoring/sprint-00.md, US-01 to US-09).
+
+Login uses an auto-generated "nom.prenom" identifiant, not an email.
 """
 
 from __future__ import annotations
 
 CUSTOM_CSS = """
-.gradio-container {
-    background: #101010 !important;
+html, body {
+    background: #ffffff !important;
+}
+:root {
+    color-scheme: light !important;
+}
+.gradio-container, .dark .gradio-container {
+    background: #ffffff !important;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+.dark, .dark body {
+    --body-background-fill: #ffffff !important;
+    --background-fill-primary: #ffffff !important;
+    --background-fill-secondary: #ffffff !important;
+    --block-background-fill: #ffffff !important;
+}
 #auth-shell {
-    max-width: 380px;
-    margin: 48px auto 0 auto;
+    max-width: 420px;
+    margin: 40px auto 0 auto;
+    padding: 0 20px;
 }
 .brand-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #ffffff;
+    color: #111111;
     font-weight: 600;
-    font-size: 15px;
-    padding: 4px 4px 16px 4px;
+    font-size: 14px;
+    padding: 4px 4px 20px 4px;
 }
 .brand-row .brand-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 5px;
-    background: #ffffff;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #111111;
+    transform: rotate(45deg);
     display: inline-block;
+    flex-shrink: 0;
 }
 .auth-card {
     background: #ffffff !important;
-    border-radius: 14px !important;
-    padding: 28px 26px 20px 26px !important;
+    border: 1px solid #e4e4e4 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    padding: 28px 26px 22px 26px !important;
+    max-width: 300px !important;
+    margin: 0 auto !important;
 }
 .auth-title {
     text-align: center;
@@ -44,61 +64,124 @@ CUSTOM_CSS = """
     font-size: 13px;
     letter-spacing: 0.02em;
     color: #111111;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
+.auth-card label span, .auth-card label {
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    color: #222222 !important;
+}
+.auth-card input[type="text"],
+.auth-card input[type="password"] {
+    background: #ffffff !important;
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 6px !important;
+    font-size: 13px !important;
+    color: #111111 !important;
+}
+.auth-card button.primary {
+    background: #111111 !important;
+    border: none !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+}
+.auth-card button.primary:hover { background: #2a2a2a !important; }
 .auth-links {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
-    margin-top: 8px;
+    align-items: center;
+    margin-top: 10px !important;
 }
-.auth-links a { color: #555555 !important; text-decoration: none; }
+.auth-links button {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #555555 !important;
+    font-size: 12px !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+.auth-links button.link-underline { text-decoration: underline !important; color: #111111 !important; }
 #legal-footer {
-    max-width: 380px;
-    margin: 18px auto 40px auto;
-    color: #d5d5d5;
-    font-size: 12px;
+    max-width: 420px;
+    margin: 20px auto 40px auto;
+    padding: 0 20px;
+    color: #333333;
 }
-#legal-footer .legal-title {
+#legal-footer .legal-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 6px;
+    font-size: 13px;
+    color: #111111;
+    margin-bottom: 8px;
+}
+#legal-footer .legal-title-row .brand-icon {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #111111;
+    transform: rotate(45deg);
+    display: inline-block;
 }
 #legal-footer a {
     display: block;
-    color: #bdbdbd !important;
+    color: #666666 !important;
     text-decoration: none;
-    margin-top: 4px;
+    font-size: 12px;
+    margin-top: 5px;
 }
-.status-msg { min-height: 20px; font-size: 13px; }
+.status-msg { min-height: 20px; font-size: 13px; margin-top: 8px; }
 .status-msg.error { color: #d64545 !important; }
-.status-msg.ok { color: #2e8b57 !important; }
-#profile-card {
+.status-msg.ok { color: #2e8b57 !important; font-weight: 600; }
+#profile-card-row {
     background: #ffffff !important;
-    border-radius: 14px !important;
-    padding: 24px !important;
-    display: flex;
-    align-items: center;
+    border: 1px solid #e4e4e4 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    padding: 20px 22px !important;
+    align-items: center !important;
     gap: 16px;
 }
+#profile-info { display: flex; align-items: center; gap: 14px; flex-grow: 1; }
 #profile-avatar {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: #dddddd;
     flex-shrink: 0;
 }
-.profile-name { font-weight: 700; font-size: 15px; color: #111111; }
-.profile-email { font-size: 12px; color: #666666; }
+.profile-name { font-weight: 700; font-size: 14px; color: #111111; }
+.profile-username { font-size: 12px; color: #666666; margin-top: 2px; }
+#disconnect-btn {
+    background: #e03e3e !important;
+    border: none !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    flex-shrink: 0;
+}
+#disconnect-btn:hover { background: #c62f2f !important; }
+.edit-link button {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #555555 !important;
+    text-decoration: underline;
+    font-size: 12px !important;
+}
 """
 
 BRAND_HTML = (
-    '<div class="brand-row"><span class="brand-icon"></span>NaturSQL</div>'
+    '<div class="brand-row"><span class="brand-icon"></span><span>NaturSQL</span></div>'
 )
 
 LEGAL_HTML = """
 <div id="legal-footer">
-  <div class="legal-title">Legal</div>
+  <div class="legal-title-row"><span class="brand-icon"></span><span>Legal</span></div>
   <a href="#">Legal Notice</a>
   <a href="#">Privacy Policy</a>
   <a href="#">Cookie management</a>
@@ -122,7 +205,7 @@ def build_app():
 
     auth_service = AuthService()
 
-    with gr.Blocks(css=CUSTOM_CSS, title="NaturSQL") as demo:
+    with gr.Blocks(css=CUSTOM_CSS, title="NaturSQL", theme=gr.themes.Default()) as demo:
         session_user = gr.State(None)  # dataclasses.User | None
 
         # ---------------------------------------------------------- Sign In
@@ -134,9 +217,11 @@ def build_app():
                     '<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">'
                     "Tous les champs sont obligatoires.</div>"
                 )
-                signin_email = gr.Textbox(label="Email *", placeholder="Value")
+                signin_username = gr.Textbox(
+                    label="Identifiant *", placeholder="nom.prenom"
+                )
                 signin_password = gr.Textbox(
-                    label="Password *", type="password", placeholder="Value"
+                    label="Mot de passe *", type="password", placeholder="Mot de passe"
                 )
                 signin_status = gr.HTML()
                 signin_button = gr.Button("Sign In", variant="primary")
@@ -145,7 +230,10 @@ def build_app():
                         "Forgot password?", size="sm", variant="secondary"
                     )
                     go_to_signup = gr.Button(
-                        "Create an account", size="sm", variant="secondary"
+                        "Create an account",
+                        size="sm",
+                        variant="secondary",
+                        elem_classes=["link-underline"],
                     )
             gr.HTML(LEGAL_HTML)
 
@@ -156,21 +244,22 @@ def build_app():
                 gr.HTML('<div class="auth-title">NaturSQL</div>')
                 gr.HTML(
                     '<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">'
-                    "Tous les champs sont obligatoires.</div>"
+                    "Tous les champs sont obligatoires. Votre identifiant de connexion "
+                    "(nom.prenom) sera généré automatiquement.</div>"
                 )
-                signup_first_name = gr.Textbox(label="First Name *", placeholder="Value")
-                signup_last_name = gr.Textbox(label="Last Name *", placeholder="Value")
-                signup_email = gr.Textbox(label="Email *", placeholder="Value")
+                signup_first_name = gr.Textbox(label="First Name *", placeholder="Prénom")
+                signup_last_name = gr.Textbox(label="Last Name *", placeholder="Nom")
                 signup_password = gr.Textbox(
                     label="Password *",
                     type="password",
-                    placeholder="Value",
+                    placeholder="Mot de passe",
                     info="8 caractères min., 1 majuscule, 1 chiffre, 1 caractère spécial.",
                 )
                 signup_confirm = gr.Textbox(
-                    label="Confirm password *", type="password", placeholder="Value"
+                    label="Confirm password *",
+                    type="password",
+                    placeholder="Confirmer le mot de passe",
                 )
-                signup_rgpd = gr.Checkbox(label="Agree with RGPD *", value=False)
                 signup_status = gr.HTML()
                 signup_button = gr.Button("Sign Up", variant="primary")
                 with gr.Row(elem_classes=["auth-links"]):
@@ -178,40 +267,46 @@ def build_app():
                         "Forgot password?", size="sm", variant="secondary"
                     )
                     go_to_signin = gr.Button(
-                        "Sign In", size="sm", variant="secondary"
+                        "Sign In",
+                        size="sm",
+                        variant="secondary",
+                        elem_classes=["link-underline"],
                     )
             gr.HTML(LEGAL_HTML)
 
         # ---------------------------------------------------------- Profil
         with gr.Column(visible=False, elem_id="auth-shell") as profile_page:
             gr.HTML(BRAND_HTML)
-            profile_card = gr.HTML()
+            with gr.Row(elem_id="profile-card-row"):
+                profile_card = gr.HTML()
+                disconnect_button = gr.Button(
+                    "Disconnect", variant="stop", elem_id="disconnect-btn", scale=0
+                )
+            with gr.Row(elem_classes=["edit-link"]):
+                edit_profile_button = gr.Button("Edit profile", size="sm")
+                save_profile_button = gr.Button(
+                    "Save", visible=False, variant="primary", size="sm"
+                )
             with gr.Column(visible=False) as profile_edit_form:
-                edit_first_name = gr.Textbox(label="First Name *")
-                edit_last_name = gr.Textbox(label="Last Name *")
-                edit_email = gr.Textbox(label="Email *")
+                edit_first_name = gr.Textbox(label="First Name *", placeholder="Prénom")
+                edit_last_name = gr.Textbox(label="Last Name *", placeholder="Nom")
             profile_status = gr.HTML()
-            with gr.Row():
-                edit_profile_button = gr.Button("Edit profile")
-                save_profile_button = gr.Button("Save", visible=False, variant="primary")
-            disconnect_button = gr.Button("Disconnect", variant="stop")
             gr.HTML(LEGAL_HTML)
 
         # ------------------------------------------------------- callbacks
 
         def _profile_card_html(user) -> str:
-            email = user.mail_ens or user.nom_util
             return (
-                '<div id="profile-card">'
+                '<div id="profile-info">'
                 '<div id="profile-avatar"></div>'
                 "<div>"
                 f'<div class="profile-name">{user.full_name}</div>'
-                f'<div class="profile-email">Email : {email}</div>'
+                f'<div class="profile-username">Identifiant : {user.nom_util}</div>'
                 "</div></div>"
             )
 
-        def do_sign_in(email, password):
-            result = auth_service.login(email, password)
+        def do_sign_in(username, password):
+            result = auth_service.login(username, password)
             if not result.ok:
                 return (
                     gr.update(),  # session_user
@@ -236,7 +331,7 @@ def build_app():
 
         signin_button.click(
             do_sign_in,
-            inputs=[signin_email, signin_password],
+            inputs=[signin_username, signin_password],
             outputs=[
                 session_user,
                 signin_page,
@@ -248,15 +343,14 @@ def build_app():
             ],
         )
 
-        def do_sign_up(first_name, last_name, email, password, confirm, rgpd):
-            result = auth_service.register(
-                email, password, confirm, first_name, last_name, rgpd
-            )
+        def do_sign_up(first_name, last_name, password, confirm):
+            result = auth_service.register(password, confirm, first_name, last_name)
             if not result.ok:
                 return gr.update(visible=True), gr.update(visible=False), _status_html(
                     result.message, ok=False
                 )
-            # US-03: message de confirmation puis redirection vers /login
+            # US-03: message de confirmation (avec l'identifiant généré) puis
+            # redirection vers /login.
             gr.Info(result.message)
             return (
                 gr.update(visible=False),
@@ -269,10 +363,8 @@ def build_app():
             inputs=[
                 signup_first_name,
                 signup_last_name,
-                signup_email,
                 signup_password,
                 signup_confirm,
-                signup_rgpd,
             ],
             outputs=[signup_page, signin_page, signin_status],
         )
@@ -320,7 +412,7 @@ def build_app():
                 session_user,
                 signin_page,
                 profile_page,
-                signin_email,
+                signin_username,
                 signin_password,
                 profile_edit_form,
                 edit_profile_button,
@@ -331,11 +423,10 @@ def build_app():
 
         def start_edit(user):
             if user is None:
-                return gr.update(), gr.update(), gr.update(), gr.update(visible=False), gr.update(visible=True)
+                return gr.update(), gr.update(), gr.update(visible=False), gr.update(visible=True)
             return (
                 user.prenom_ens,
                 user.nom_ens,
-                user.mail_ens or user.nom_util,
                 gr.update(visible=True),
                 gr.update(visible=False),
             )
@@ -346,13 +437,12 @@ def build_app():
             outputs=[
                 edit_first_name,
                 edit_last_name,
-                edit_email,
                 profile_edit_form,
                 edit_profile_button,
             ],
         ).then(lambda: gr.update(visible=True), outputs=save_profile_button)
 
-        def do_save_profile(user, first_name, last_name, email):
+        def do_save_profile(user, first_name, last_name):
             if user is None:
                 return (
                     user,
@@ -362,7 +452,7 @@ def build_app():
                     gr.update(visible=True),
                     gr.update(visible=False),
                 )
-            result = auth_service.update_profile(user, first_name, last_name, email)
+            result = auth_service.update_profile(user, first_name, last_name)
             if not result.ok:
                 return (
                     user,
@@ -385,7 +475,7 @@ def build_app():
 
         save_profile_button.click(
             do_save_profile,
-            inputs=[session_user, edit_first_name, edit_last_name, edit_email],
+            inputs=[session_user, edit_first_name, edit_last_name],
             outputs=[
                 session_user,
                 profile_status,

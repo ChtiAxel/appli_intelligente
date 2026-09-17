@@ -3,11 +3,11 @@
 Reuses the existing `appia` schema instead of creating a parallel one:
 
 - `utilisateurs` (nom_util, mdp, id_ens, admin, vacataire, budget)
-  is the login table: `nom_util` stores the user's email, `mdp` the
-  hashed password, `id_ens` is a foreign key to `enseignants`.
-- `enseignants` (id_ens, nom_ens, prenom_ens, mail_ens, ...) holds the
-  profile fields shown on the "Profil" page (first name, last name,
-  email).
+  is the login table: `nom_util` stores the login identifier
+  ("nom.prenom", generated at sign-up), `mdp` the hashed password,
+  `id_ens` is a foreign key to `enseignants`.
+- `enseignants` (id_ens, nom_ens, prenom_ens, ...) holds the profile
+  fields shown on the "Profil" page (first name, last name).
 
 The original 54 seeded accounts have a raw MD5 password hash
 (32 hex chars, from before this feature existed). New accounts are
@@ -37,14 +37,13 @@ _LEGACY_MD5_RE = re.compile(r"^[0-9a-f]{32}$")
 class User:
     """A row from `utilisateurs` joined with its `enseignants` profile."""
 
-    nom_util: str  # email, used as login
+    nom_util: str  # identifiant de connexion, ex: "deroo.raphael"
     id_ens: str
     admin: bool
     vacataire: bool
     budget: bool
     nom_ens: str
     prenom_ens: str
-    mail_ens: Optional[str]
 
     @property
     def full_name(self) -> str:
@@ -52,7 +51,17 @@ class User:
 
 
 class UserAlreadyExistsError(Exception):
-    """Raised when trying to register an email that is already in use."""
+    """Raised when trying to register an identifiant that is already in use."""
+
+
+def _strip_accents(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    return "".join(c for c in normalized if not unicodedata.combining(c))
+
+
+def _slug(value: str) -> str:
+    value = _strip_accents(value).lower()
+    return re.sub(r"[^a-z0-9]+", "", value)
 
 
 class UserStorage:
@@ -82,34 +91,34 @@ class UserStorage:
 
     # -- lookups ---------------------------------------------------
 
-    def find_by_email(self, email: str) -> Optional[User]:
+    def find_by_username(self, nom_util: str) -> Optional[User]:
         with db.transaction() as cursor:
             cursor.execute(
                 """
                 SELECT u.nom_util, u.mdp, u.id_ens, u.admin, u.vacataire, u.budget,
-                       e.nom_ens, e.prenom_ens, e.mail_ens
+                       e.nom_ens, e.prenom_ens
                 FROM utilisateurs u
                 JOIN enseignants e ON e.id_ens = u.id_ens
                 WHERE u.nom_util = %s
                 """,
-                (email,),
+                (nom_util,),
             )
             row = cursor.fetchone()
         return self._row_to_user(row) if row else None
 
     # -- authentication ---------------------------------------------
 
-    def authenticate(self, email: str, password: str) -> Optional[User]:
+    def authenticate(self, nom_util: str, password: str) -> Optional[User]:
         with db.transaction() as cursor:
             cursor.execute(
                 """
                 SELECT u.nom_util, u.mdp, u.id_ens, u.admin, u.vacataire, u.budget,
-                       e.nom_ens, e.prenom_ens, e.mail_ens
+                       e.nom_ens, e.prenom_ens
                 FROM utilisateurs u
                 JOIN enseignants e ON e.id_ens = u.id_ens
                 WHERE u.nom_util = %s
                 """,
-                (email,),
+                (nom_util,),
             )
             row = cursor.fetchone()
         if row is None:
@@ -128,26 +137,19 @@ class UserStorage:
 
     # -- registration -------------------------------------------------
 
-    def create_user(
-        self, email: str, password: str, first_name: str, last_name: str
-    ) -> User:
+    def create_user(self, password: str, first_name: str, last_name: str) -> User:
+        """Create a new account and auto-generate its "nom.prenom" identifiant."""
         password_hash = generate_password_hash(password)
         with db.transaction() as cursor:
-            cursor.execute(
-                "SELECT 1 FROM utilisateurs WHERE nom_util = %s", (email,)
-            )
-            if cursor.fetchone():
-                raise UserAlreadyExistsError(email)
-
+            nom_util = self._generate_identifiant(cursor, first_name, last_name)
             id_ens = self._generate_id_ens(cursor, first_name, last_name)
 
             cursor.execute(
                 """
-                INSERT INTO enseignants
-                    (id_ens, titulaire_ens, nom_ens, prenom_ens, mail_ens)
-                VALUES (%s, 0, %s, %s, %s)
+                INSERT INTO enseignants (id_ens, titulaire_ens, nom_ens, prenom_ens)
+                VALUES (%s, 0, %s, %s)
                 """,
-                (id_ens, last_name, first_name, email),
+                (id_ens, last_name, first_name),
             )
             try:
                 cursor.execute(
@@ -156,32 +158,42 @@ class UserStorage:
                         (nom_util, mdp, id_ens, admin, vacataire, budget)
                     VALUES (%s, %s, %s, 0, 0, 0)
                     """,
-                    (email, password_hash, id_ens),
+                    (nom_util, password_hash, id_ens),
                 )
             except pymysql.err.IntegrityError as exc:
-                raise UserAlreadyExistsError(email) from exc
+                raise UserAlreadyExistsError(nom_util) from exc
 
         return User(
-            nom_util=email,
+            nom_util=nom_util,
             id_ens=id_ens,
             admin=False,
             vacataire=False,
             budget=False,
             nom_ens=last_name,
             prenom_ens=first_name,
-            mail_ens=email,
         )
+
+    @staticmethod
+    def _generate_identifiant(cursor, first_name: str, last_name: str) -> str:
+        """Build a unique "nom.prenom" login identifier, e.g. 'deroo.raphael'."""
+        base = f"{_slug(last_name)}.{_slug(first_name)}"[:45] or "utilisateur"
+
+        candidate = base
+        suffix = 2
+        while True:
+            cursor.execute(
+                "SELECT 1 FROM utilisateurs WHERE nom_util = %s", (candidate,)
+            )
+            if not cursor.fetchone():
+                return candidate
+            candidate = f"{base}{suffix}"[:50]
+            suffix += 1
 
     @staticmethod
     def _generate_id_ens(cursor, first_name: str, last_name: str) -> str:
         """Pick a free 4-char `id_ens` code, e.g. 'Raphael Deroo' -> 'RDEO'."""
-
-        def strip_accents(value: str) -> str:
-            normalized = unicodedata.normalize("NFKD", value)
-            return "".join(c for c in normalized if not unicodedata.combining(c))
-
-        first = strip_accents(first_name).upper()
-        last = strip_accents(last_name).upper()
+        first = _strip_accents(first_name).upper()
+        last = _strip_accents(last_name).upper()
         base = (first[:1] + last[:3]) or "USR"
         base = "".join(c for c in base if c in string.ascii_uppercase) or "USR"
         base = base[:4]
@@ -204,34 +216,15 @@ class UserStorage:
 
     # -- profile update ------------------------------------------------
 
-    def update_profile(
-        self, id_ens: str, first_name: str, last_name: str, email: str
-    ) -> None:
+    def update_profile(self, id_ens: str, first_name: str, last_name: str) -> None:
         with db.transaction() as cursor:
-            cursor.execute(
-                "SELECT nom_util FROM utilisateurs WHERE id_ens = %s", (id_ens,)
-            )
-            row = cursor.fetchone()
-            current_login = row["nom_util"] if row else None
-
-            if email != current_login:
-                cursor.execute(
-                    "SELECT 1 FROM utilisateurs WHERE nom_util = %s", (email,)
-                )
-                if cursor.fetchone():
-                    raise UserAlreadyExistsError(email)
-
             cursor.execute(
                 """
                 UPDATE enseignants
-                SET nom_ens = %s, prenom_ens = %s, mail_ens = %s
+                SET nom_ens = %s, prenom_ens = %s
                 WHERE id_ens = %s
                 """,
-                (last_name, first_name, email, id_ens),
-            )
-            cursor.execute(
-                "UPDATE utilisateurs SET nom_util = %s WHERE id_ens = %s",
-                (email, id_ens),
+                (last_name, first_name, id_ens),
             )
 
     @staticmethod
@@ -244,5 +237,4 @@ class UserStorage:
             budget=bool(row["budget"]),
             nom_ens=row["nom_ens"],
             prenom_ens=row["prenom_ens"],
-            mail_ens=row["mail_ens"],
         )
