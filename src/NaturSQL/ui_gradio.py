@@ -107,6 +107,15 @@ html, body {
 .auth-card label {
     background: #ffffff !important;
 }
+/* Gradio regroupe automatiquement les champs consecutifs dans un
+   conteneur ".form" - c'est la "carte interieure" qui contient tous
+   les champs, distincte de la carte exterieure (.auth-card, bordure
+   noire) et du bouton (en dehors de ce groupe). */
+#auth-shell .form {
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+}
 .auth-card button.primary {
     background: #111111 !important;
     border: none !important;
