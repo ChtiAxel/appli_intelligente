@@ -63,8 +63,8 @@ html, body {
 }
 .auth-card {
     background: #ffffff !important;
-    border: 1px solid #e4e4e4 !important;
-    border-radius: 12px !important;
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 6px !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
     padding: 28px 26px 22px 26px !important;
     max-width: 300px !important;
@@ -74,7 +74,7 @@ html, body {
        force every field (text or password) to a white background. */
     --input-background-fill: #ffffff !important;
     --input-background-fill-focus: #ffffff !important;
-    --border-color-primary: #d9d9d9 !important;
+    --border-color-primary: #e4e4e4 !important;
     --block-background-fill: #ffffff !important;
 }
 .auth-title {
@@ -96,8 +96,8 @@ html, body {
 .auth-card textarea,
 .auth-card .wrap textarea {
     background: #ffffff !important;
-    border: 1px solid #d9d9d9 !important;
-    border-radius: 6px !important;
+    border: 1px solid #e4e4e4 !important;
+    border-radius: 12px !important;
     font-size: 13px !important;
     color: #111111 !important;
     box-shadow: none !important;
@@ -137,8 +137,8 @@ html, body {
 .status-msg.ok { color: #2e8b57 !important; font-weight: 600; }
 #profile-card-row {
     background: #ffffff !important;
-    border: 1px solid #e4e4e4 !important;
-    border-radius: 12px !important;
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 6px !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
     padding: 20px 22px !important;
     align-items: center !important;
