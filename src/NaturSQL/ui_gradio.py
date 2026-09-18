@@ -69,6 +69,13 @@ html, body {
     padding: 28px 26px 22px 26px !important;
     max-width: 300px !important;
     margin: 0 auto !important;
+    /* Gradio derives input/textarea backgrounds from these theme
+       variables - overriding them here is the most reliable way to
+       force every field (text or password) to a white background. */
+    --input-background-fill: #ffffff !important;
+    --input-background-fill-focus: #ffffff !important;
+    --border-color-primary: #d9d9d9 !important;
+    --block-background-fill: #ffffff !important;
 }
 .auth-title {
     text-align: center;
@@ -84,12 +91,21 @@ html, body {
     color: #222222 !important;
 }
 .auth-card input[type="text"],
-.auth-card input[type="password"] {
+.auth-card input[type="password"],
+.auth-card input[type="email"],
+.auth-card textarea,
+.auth-card .wrap textarea {
     background: #ffffff !important;
     border: 1px solid #d9d9d9 !important;
     border-radius: 6px !important;
     font-size: 13px !important;
     color: #111111 !important;
+    box-shadow: none !important;
+}
+.auth-card .container,
+.auth-card .block,
+.auth-card label {
+    background: #ffffff !important;
 }
 .auth-card button.primary {
     background: #111111 !important;
