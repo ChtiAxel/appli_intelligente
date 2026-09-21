@@ -229,7 +229,6 @@ def build_app():
                     _status_html(result.message, ok=False), "", ""
                 )
             user = result.user
-            gr.Info(result.message)
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True),
                 "", _profile_card_md(user), _status_html(result.message, ok=True)
@@ -244,14 +243,33 @@ def build_app():
         def do_sign_up(first_name, last_name, password, confirm):
             result = auth_service.register(password, confirm, first_name, last_name)
             if not result.ok:
-                return gr.update(visible=True), gr.update(visible=False), _status_html(result.message, ok=False)
-            gr.Info(result.message)
-            return gr.update(visible=False), gr.update(visible=True), _status_html(result.message, ok=True)
+                # Champs manquants, mot de passe trop faible, mots de passe
+                # differents, identifiant deja pris... le message reste sur
+                # la page Inscription, qui reste affichee.
+                return (
+                    gr.update(visible=True),
+                    gr.update(visible=False),
+                    _status_html(result.message, ok=False),
+                    "",
+                )
+            # US-03: message de confirmation (avec l'identifiant généré) puis
+            # redirection vers la page de connexion.
+            return (
+                gr.update(visible=False),
+                gr.update(visible=True),
+                "",
+                _status_html(result.message, ok=True),
+            )
 
         signup_button.click(
             do_sign_up,
-            inputs=[signup_first_name, signup_last_name, signup_password, signup_confirm],
-            outputs=[signup_page, signin_page, signin_status]
+            inputs=[
+                signup_first_name,
+                signup_last_name,
+                signup_password,
+                signup_confirm,
+            ],
+            outputs=[signup_page, signin_page, signup_status, signin_status],
         )
 
         def show_signup():
