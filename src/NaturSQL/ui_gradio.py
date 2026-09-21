@@ -42,10 +42,11 @@ html, body {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #111111;
+    color: #000000 !important;
     font-weight: 700;
     font-size: 15px;
 }
+.brand-row span { color: #000000 !important; }
 .brand-row .brand-icon {
     width: 16px;
     height: 16px;
@@ -357,7 +358,6 @@ def build_app():
                     "",
                 )
             user = result.user
-            gr.Info(result.message)
             return (
                 user,
                 gr.update(visible=False),
@@ -390,7 +390,6 @@ def build_app():
                 )
             # US-03: message de confirmation (avec l'identifiant généré) puis
             # redirection vers la page de connexion.
-            gr.Info(result.message)
             return (
                 gr.update(visible=False),
                 gr.update(visible=True),
