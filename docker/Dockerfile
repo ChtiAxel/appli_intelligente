@@ -13,4 +13,4 @@ ENV GRADIO_SERVER_PORT=7860
 
 EXPOSE 7860
 
-CMD ["python", "src/NaturSQL/ui_gradio.py"]
+CMD ["python", "-m", "src.NaturSQL.ui_gradio"]
