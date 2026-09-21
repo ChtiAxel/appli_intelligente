@@ -6,6 +6,13 @@ import base64
 import gradio as gr
 from .service.auth import AuthService
 
+def load_markdown(filename: str) -> str:
+    path = os.path.join(os.path.dirname(__file__), "docs", "legal", filename)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    return f"Fichier {filename} introuvable."
+
 # Load logo as base64 for embedding in HTML
 logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
 try:
@@ -195,6 +202,19 @@ def build_app():
                     edit_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
                     edit_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
 
+            # --- Pages Légales ---
+            with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_mentions_page:
+                gr.Markdown(load_markdown("mentions-legales.md"))
+                btn_back_1 = gr.Button("Retour")
+                
+            with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_privacy_page:
+                gr.Markdown(load_markdown("politique-confidentialite.md"))
+                btn_back_2 = gr.Button("Retour")
+                
+            with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_cgu_page:
+                gr.Markdown(load_markdown("conditions-generales-utilisation.md"))
+                btn_back_3 = gr.Button("Retour")
+
         # Pied de page (Footer)
         with gr.Column(elem_classes=["footer"]):
             footer_logo = f'<img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" />' if b64_logo else ""
@@ -205,16 +225,40 @@ def build_app():
                     {footer_logo}
                 </div>
                 <div style='line-height: 1.8; color: #1f2937;'>
-                    <strong>Legal</strong><br>
-                    Legal Notice<br>
-                    Privacy Policy<br>
-                    Cookie management<br>
-                    General Terms of Use
+                    <strong>Légal</strong><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-mentions button').click(); return false;">Mentions légales</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-privacy button').click(); return false;">Politique de confidentialité</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-cgu button').click(); return false;">Conditions générales d'utilisation</a>
                 </div>
             </div>
             """)
+            
+            # Boutons invisibles pour déclencher l'affichage des pages légales depuis le footer HTML
+            btn_show_mentions = gr.Button(visible=False, elem_id="btn-show-mentions")
+            btn_show_privacy = gr.Button(visible=False, elem_id="btn-show-privacy")
+            btn_show_cgu = gr.Button(visible=False, elem_id="btn-show-cgu")
 
         # --- Callbacks ---
+
+        def go_to_page(page_name, session):
+            s_in = s_up = prof = leg_m = leg_p = leg_c = gr.update(visible=False)
+            if page_name == "mentions": leg_m = gr.update(visible=True)
+            elif page_name == "privacy": leg_p = gr.update(visible=True)
+            elif page_name == "cgu": leg_c = gr.update(visible=True)
+            elif page_name == "home":
+                if session is None: s_in = gr.update(visible=True)
+                else: prof = gr.update(visible=True)
+            return s_in, s_up, prof, leg_m, leg_p, leg_c
+
+        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page]
+        
+        btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
+        btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
+        btn_show_cgu.click(lambda s: go_to_page("cgu", s), inputs=[session_user], outputs=page_outputs)
+        
+        btn_back_1.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_2.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_3.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
         def _profile_card_md(user) -> str:
             if not user:
@@ -243,17 +287,12 @@ def build_app():
         def do_sign_up(first_name, last_name, password, confirm):
             result = auth_service.register(password, confirm, first_name, last_name)
             if not result.ok:
-                # Champs manquants, mot de passe trop faible, mots de passe
-                # differents, identifiant deja pris... le message reste sur
-                # la page Inscription, qui reste affichee.
                 return (
                     gr.update(visible=True),
                     gr.update(visible=False),
                     _status_html(result.message, ok=False),
                     "",
                 )
-            # US-03: message de confirmation (avec l'identifiant généré) puis
-            # redirection vers la page de connexion.
             return (
                 gr.update(visible=False),
                 gr.update(visible=True),
