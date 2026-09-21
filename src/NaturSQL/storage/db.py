@@ -8,7 +8,7 @@ from typing import Iterator
 import pymysql
 import pymysql.cursors
 
-from NaturSQL import config
+from .. import config
 
 
 def get_connection() -> pymysql.connections.Connection:

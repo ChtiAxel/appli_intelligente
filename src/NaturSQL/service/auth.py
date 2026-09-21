@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from NaturSQL.storage.users import User, UserAlreadyExistsError, UserStorage
+from ..storage.users import User, UserAlreadyExistsError, UserStorage
 
 _SPECIAL_CHARS_RE = re.compile(r"[^A-Za-z0-9]")
 MIN_PASSWORD_LENGTH = 8

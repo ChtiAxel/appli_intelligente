@@ -28,7 +28,7 @@ from typing import Optional
 import pymysql
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from NaturSQL.storage import db
+from . import db
 
 _LEGACY_MD5_RE = re.compile(r"^[0-9a-f]{32}$")
 

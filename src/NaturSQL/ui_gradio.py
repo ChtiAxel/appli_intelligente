@@ -258,7 +258,7 @@ def build_app():
     """Build the Connexion / Inscription / Profil Gradio app."""
     import gradio as gr
 
-    from NaturSQL.service.auth import AuthService
+    from .service.auth import AuthService
 
     auth_service = AuthService()
 
