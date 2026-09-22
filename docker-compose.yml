@@ -20,6 +20,8 @@ services:
 
   db:
     image: mariadb:11.1
+    ports:
+      - "3306:3306"
     environment:
       MARIADB_DATABASE: appia
       MARIADB_USER: appia
