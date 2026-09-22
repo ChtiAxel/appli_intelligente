@@ -227,9 +227,9 @@ def build_app():
                 </div>
                 <div style='line-height: 1.8; color: #1f2937;'>
                     <strong>Légal</strong><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-mentions button').click(); return false;">Mentions légales</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-privacy button').click(); return false;">Politique de confidentialité</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.querySelector('#btn-show-cgu button').click(); return false;">Conditions générales d'utilisation</a>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a>
                 </div>
             </div>
             """)
