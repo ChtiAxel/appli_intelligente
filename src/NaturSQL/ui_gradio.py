@@ -160,7 +160,8 @@ def build_app():
                     gr.Markdown("### Sign In", elem_classes=["text-center"])
                     gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires.</div>')
                     
-                    signin_username = gr.Textbox(label="Identifiant *", placeholder="dupont.jean")
+                    signin_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
+                    signin_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
                     signin_password = gr.Textbox(label="Mot de passe *", type="password", placeholder="Mot de passe")
                     
                     signin_status = gr.HTML()
@@ -173,7 +174,7 @@ def build_app():
             with gr.Column(visible=False) as signup_page:
                 with gr.Column(elem_classes=["auth-card"]):
                     gr.Markdown("### Sign Up", elem_classes=["text-center"])
-                    gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires. Votre identifiant de connexion (nom.prenom) sera généré automatiquement.</div>')
+                    gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires.</div>')
                     
                     signup_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
                     signup_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
@@ -264,10 +265,10 @@ def build_app():
         def _profile_card_md(user) -> str:
             if not user:
                 return "Erreur de chargement"
-            return f"**{user.full_name}**\n\nIdentifiant : {user.nom_util}"
+            return f"**{user.full_name}**"
 
-        def do_sign_in(username, password):
-            result = auth_service.login(username, password)
+        def do_sign_in(first_name, last_name, password):
+            result = auth_service.login(first_name, last_name, password)
             if not result.ok:
                 return (
                     gr.update(), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
@@ -281,7 +282,7 @@ def build_app():
 
         signin_button.click(
             do_sign_in,
-            inputs=[signin_username, signin_password],
+            inputs=[signin_first_name, signin_last_name, signin_password],
             outputs=[session_user, signin_page, signup_page, profile_page, signin_status, profile_info, profile_status]
         )
 
@@ -323,14 +324,14 @@ def build_app():
 
         def do_disconnect():
             return (
-                None, gr.update(visible=True), gr.update(visible=False), "", "",
+                None, gr.update(visible=True), gr.update(visible=False), "", "", "",
                 gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), ""
             )
 
         disconnect_button.click(
             do_disconnect,
             outputs=[
-                session_user, signin_page, profile_page, signin_username, signin_password,
+                session_user, signin_page, profile_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, save_profile_button, profile_status
             ]
         )
@@ -338,7 +339,7 @@ def build_app():
         def start_edit(user):
             if user is None:
                 return gr.update(), gr.update(), gr.update(visible=False), gr.update(visible=True)
-            return user.prenom_ens, user.nom_ens, gr.update(visible=True), gr.update(visible=False)
+            return user.prenom, user.nom, gr.update(visible=True), gr.update(visible=False)
 
         edit_profile_button.click(
             start_edit,

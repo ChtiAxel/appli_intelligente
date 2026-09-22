@@ -21,7 +21,7 @@ services:
   db:
     image: mariadb:11.1
     ports:
-      - "3306:3306"
+      - "3307:3306"
     environment:
       MARIADB_DATABASE: appia
       MARIADB_USER: appia
@@ -31,10 +31,18 @@ services:
       - mariadb_data:/var/lib/mysql
       - ./src/NaturSQL/docs/bdd/appia.sql:/docker-entrypoint-initdb.d/01-appia.sql:ro
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  adminer:
+    image: adminer:4
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
 
   ollama:
     image: ollama/ollama:latest
