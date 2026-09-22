@@ -114,6 +114,7 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
 .status-msg { min-height: 20px; font-size: 13px; margin-top: 8px; }
 .status-msg.error { color: #d64545 !important; }
 .status-msg.ok { color: #2e8b57 !important; font-weight: 600; }
+.hidden-btn { display: none !important; }
 """
 
 theme = gr.themes.Default(
@@ -234,9 +235,9 @@ def build_app():
             """)
             
             # Boutons invisibles pour déclencher l'affichage des pages légales depuis le footer HTML
-            btn_show_mentions = gr.Button(visible=False, elem_id="btn-show-mentions")
-            btn_show_privacy = gr.Button(visible=False, elem_id="btn-show-privacy")
-            btn_show_cgu = gr.Button(visible=False, elem_id="btn-show-cgu")
+            btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
+            btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
+            btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
 
         # --- Callbacks ---
 
