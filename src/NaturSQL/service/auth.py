@@ -5,7 +5,7 @@ French user-facing error/success messages used by the UI (see
 sprint-00 user stories US-01 to US-09 in
 docs/monitoring/sprint-00.md).
 
-Login uses an auto-generated "nom.prenom" identifiant (no email).
+Login uses the first name, last name and password stored in `compte`.
 """
 
 from __future__ import annotations
@@ -53,18 +53,19 @@ class AuthService:
 
     # -- US-04/US-05: connexion -----------------------------------------
 
-    def login(self, identifiant: str, password: str) -> AuthResult:
-        identifiant = (identifiant or "").strip().lower()
+    def login(self, first_name: str, last_name: str, password: str) -> AuthResult:
+        first_name = (first_name or "").strip()
+        last_name = (last_name or "").strip()
         password = password or ""
 
-        if not identifiant or not password:
+        if not first_name or not last_name or not password:
             return AuthResult(False, "Tous les champs sont obligatoires.")
 
-        user = self._storage.authenticate(identifiant, password)
+        user = self._storage.authenticate(first_name, last_name, password)
         if user is None:
-            return AuthResult(False, "Identifiant ou mot de passe incorrect.")
+            return AuthResult(False, "Prénom, nom ou mot de passe incorrect.")
 
-        return AuthResult(True, f"Connexion réussie. Bienvenue, {user.prenom_ens} !", user)
+        return AuthResult(True, f"Connexion réussie. Bienvenue, {user.prenom} !", user)
 
     # -- US-01/US-02/US-03: inscription ----------------------------------
 
@@ -96,7 +97,7 @@ class AuthService:
 
         return AuthResult(
             True,
-            f"Compte créé avec succès ! Votre identifiant de connexion est : {user.nom_util}",
+            "Compte créé avec succès ! Vous pouvez maintenant vous connecter.",
             user,
         )
 
@@ -109,7 +110,7 @@ class AuthService:
         if not all([first_name, last_name]):
             return AuthResult(False, "Tous les champs sont obligatoires.")
 
-        self._storage.update_profile(current_user.id_ens, first_name, last_name)
+        self._storage.update_profile(current_user.prenom, current_user.nom, first_name, last_name)
 
-        updated = self._storage.find_by_username(current_user.nom_util)
+        updated = self._storage.find_by_name(first_name, last_name)
         return AuthResult(True, "Profil mis à jour avec succès.", updated)
