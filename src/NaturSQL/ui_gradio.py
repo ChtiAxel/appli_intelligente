@@ -7,10 +7,15 @@ import gradio as gr
 from .service.auth import AuthService
 
 def load_markdown(filename: str) -> str:
-    path = os.path.join(os.path.dirname(__file__), "docs", "legal", filename)
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "docs", "legal", filename),
+        os.path.join(os.path.dirname(__file__), "docs", filename),
+        os.path.join(os.path.dirname(__file__), "..", "..", filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
     return f"Fichier {filename} introuvable."
 
 # Load logo as base64 for embedding in HTML
@@ -78,6 +83,14 @@ html, body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     margin: 0 auto;
     max-width: 500px;
+}
+.doc-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    margin: 0 auto;
+    max-width: 850px;
 }
 .footer {
     background: white;
@@ -217,14 +230,23 @@ def build_app():
                 gr.Markdown(load_markdown("conditions-generales-utilisation.md"))
                 btn_back_3 = gr.Button("Retour")
 
+            # --- Page de Documentation Utilisateur ---
+            with gr.Column(visible=False, elem_classes=["doc-card"]) as doc_page:
+                gr.Markdown(load_markdown("documentation_utilisateur.md"))
+                btn_back_doc = gr.Button("Retour")
+
         # Pied de page (Footer)
         with gr.Column(elem_classes=["footer"]):
             footer_logo = f'<img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" />' if b64_logo else ""
                 
             gr.HTML(f"""
-            <div style='display: flex; align-items: flex-start; padding-left: 2rem;'>
+            <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
                 <div>
                     {footer_logo}
+                </div>
+                <div style='line-height: 1.8; color: #1f2937;'>
+                    <strong>Aide</strong><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
                 </div>
                 <div style='line-height: 1.8; color: #1f2937;'>
                     <strong>Légal</strong><br>
@@ -235,7 +257,8 @@ def build_app():
             </div>
             """)
             
-            # Boutons invisibles pour déclencher l'affichage des pages légales depuis le footer HTML
+            # Boutons invisibles pour déclencher l'affichage des pages depuis le footer HTML
+            btn_show_doc = gr.Button(elem_id="btn-show-doc", elem_classes=["hidden-btn"])
             btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
             btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
@@ -243,17 +266,19 @@ def build_app():
         # --- Callbacks ---
 
         def go_to_page(page_name, session):
-            s_in = s_up = prof = leg_m = leg_p = leg_c = gr.update(visible=False)
+            s_in = s_up = prof = leg_m = leg_p = leg_c = doc = gr.update(visible=False)
             if page_name == "mentions": leg_m = gr.update(visible=True)
             elif page_name == "privacy": leg_p = gr.update(visible=True)
             elif page_name == "cgu": leg_c = gr.update(visible=True)
+            elif page_name == "doc": doc = gr.update(visible=True)
             elif page_name == "home":
                 if session is None: s_in = gr.update(visible=True)
                 else: prof = gr.update(visible=True)
-            return s_in, s_up, prof, leg_m, leg_p, leg_c
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, doc
 
-        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page]
+        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, doc_page]
         
+        btn_show_doc.click(lambda s: go_to_page("doc", s), inputs=[session_user], outputs=page_outputs)
         btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
         btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
         btn_show_cgu.click(lambda s: go_to_page("cgu", s), inputs=[session_user], outputs=page_outputs)
@@ -261,6 +286,7 @@ def build_app():
         btn_back_1.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_2.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_3.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_doc.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
         def _profile_card_md(user) -> str:
             if not user:
