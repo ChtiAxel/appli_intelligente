@@ -6,7 +6,8 @@ services:
     ports:
       - "7860:7860"
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: http://10.22.28.190:11434
+      OLLAMA_MODEL: gemma2:latest
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: appia
@@ -15,8 +16,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      ollama:
-        condition: service_started
 
   db:
     image: mariadb:11.1
@@ -44,13 +43,5 @@ services:
       db:
         condition: service_healthy
 
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-
 volumes:
   mariadb_data:
-  ollama_data:
