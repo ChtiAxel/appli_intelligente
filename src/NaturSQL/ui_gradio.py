@@ -9,10 +9,15 @@ from .storage.conversations import ConversationStorage
 from .service.core import ask_database
 
 def load_markdown(filename: str) -> str:
-    path = os.path.join(os.path.dirname(__file__), "docs", "legal", filename)
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "docs", "legal", filename),
+        os.path.join(os.path.dirname(__file__), "docs", filename),
+        os.path.join(os.path.dirname(__file__), "..", "..", filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
     return f"Fichier {filename} introuvable."
 
 # Load logo as base64 for embedding in HTML
@@ -80,6 +85,14 @@ html, body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     margin: 3rem auto 0 auto;
     max-width: 500px;
+}
+.doc-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    margin: 0 auto;
+    max-width: 850px;
 }
 .footer {
     background: white;
@@ -306,7 +319,8 @@ def build_app():
                     gr.Markdown("### Sign In", elem_classes=["text-center"])
                     gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires.</div>')
                     
-                    signin_username = gr.Textbox(label="Identifiant *", placeholder="dupont.jean")
+                    signin_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
+                    signin_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
                     signin_password = gr.Textbox(label="Mot de passe *", type="password", placeholder="Mot de passe")
                     
                     signin_status = gr.HTML()
@@ -319,7 +333,7 @@ def build_app():
             with gr.Column(visible=False) as signup_page:
                 with gr.Column(elem_classes=["auth-card"]):
                     gr.Markdown("### Sign Up", elem_classes=["text-center"])
-                    gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires. Votre identifiant de connexion (nom.prenom) sera généré automatiquement.</div>')
+                    gr.HTML('<div style="font-size:11px;color:#888;margin:-6px 0 10px 0;">Tous les champs sont obligatoires.</div>')
                     
                     signup_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
                     signup_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
@@ -393,14 +407,23 @@ def build_app():
                         )
                         send_btn = gr.Button("↑", min_width=50, scale=1)
 
+            # --- Page de Documentation Utilisateur ---
+            with gr.Column(visible=False, elem_classes=["doc-card"]) as doc_page:
+                gr.Markdown(load_markdown("documentation_utilisateur.md"))
+                btn_back_doc = gr.Button("Retour")
+
         # Pied de page (Footer)
         with gr.Column(elem_classes=["footer"]):
             footer_logo = f'<img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" />' if b64_logo else ""
                 
             gr.HTML(f"""
-            <div style='display: flex; align-items: flex-start; padding-left: 2rem;'>
+            <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
                 <div>
                     {footer_logo}
+                </div>
+                <div style='line-height: 1.8; color: #1f2937;'>
+                    <strong>Aide</strong><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
                 </div>
                 <div style='line-height: 1.8; color: #1f2937;'>
                     <strong>Légal</strong><br>
@@ -411,7 +434,8 @@ def build_app():
             </div>
             """)
             
-            # Boutons invisibles pour déclencher l'affichage des pages légales depuis le footer HTML
+            # Boutons invisibles pour déclencher l'affichage des pages depuis le footer HTML
+            btn_show_doc = gr.Button(elem_id="btn-show-doc", elem_classes=["hidden-btn"])
             btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
             btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
@@ -419,19 +443,21 @@ def build_app():
         # --- Callbacks ---
 
         def go_to_page(page_name, session):
-            s_in = s_up = prof = leg_m = leg_p = leg_c = conv = gr.update(visible=False)
+            s_in = s_up = prof = leg_m = leg_p = leg_c = doc = conv = gr.update(visible=False)
             if page_name == "mentions": leg_m = gr.update(visible=True)
             elif page_name == "privacy": leg_p = gr.update(visible=True)
             elif page_name == "cgu": leg_c = gr.update(visible=True)
+            elif page_name == "doc": doc = gr.update(visible=True)
             elif page_name == "home":
                 if session is None: s_in = gr.update(visible=True)
                 else: conv = gr.update(visible=True)
             elif page_name == "profile":
                 if session is not None: prof = gr.update(visible=True)
-            return s_in, s_up, prof, leg_m, leg_p, leg_c, conv
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv
 
-        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, conversation_page]
+        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, doc_page, conversation_page]
         
+        btn_show_doc.click(lambda s: go_to_page("doc", s), inputs=[session_user], outputs=page_outputs)
         btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
         btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
         btn_show_cgu.click(lambda s: go_to_page("cgu", s), inputs=[session_user], outputs=page_outputs)
@@ -439,12 +465,13 @@ def build_app():
         btn_back_1.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_2.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_3.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_doc.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_to_conv.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
         def _profile_card_md(user) -> str:
             if not user:
                 return "Erreur de chargement"
-            return f"**{user.full_name}**\n\nIdentifiant : {user.nom_util}"
+            return f"**{user.full_name}**"
 
         def _build_conv_choices(conversations):
             choices = []
@@ -457,8 +484,8 @@ def build_app():
                 conv_map[label] = c.id
             return choices, conv_map
 
-        def do_sign_in(username, password):
-            result = auth_service.login(username, password)
+        def do_sign_in(first_name, last_name, password):
+            result = auth_service.login(first_name, last_name, password)
             if not result.ok:
                 return (
                     gr.update(), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
@@ -481,7 +508,7 @@ def build_app():
 
         signin_button.click(
             do_sign_in,
-            inputs=[signin_username, signin_password],
+            inputs=[signin_first_name, signin_last_name, signin_password],
             outputs=[
                 session_user, signin_page, signup_page, profile_page, conversation_page,
                 signin_status, profile_info, profile_status,
@@ -529,7 +556,7 @@ def build_app():
 
         def do_disconnect():
             return (
-                None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "",
+                None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "", "",
                 gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), "",
                 [], gr.update(choices=[]), {}, None, ""
             )
@@ -537,7 +564,7 @@ def build_app():
         disconnect_button.click(
             do_disconnect,
             outputs=[
-                session_user, signin_page, profile_page, conversation_page, signin_username, signin_password,
+                session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, save_profile_button, profile_status,
                 chatbot, conv_radio, conv_id_map, current_conv_id, sidebar_user_html
             ]
@@ -546,7 +573,7 @@ def build_app():
         def start_edit(user):
             if user is None:
                 return gr.update(), gr.update(), gr.update(visible=False), gr.update(visible=True)
-            return user.prenom_ens, user.nom_ens, gr.update(visible=True), gr.update(visible=False)
+            return user.prenom, user.nom, gr.update(visible=True), gr.update(visible=False)
 
         edit_profile_button.click(
             start_edit,

@@ -10057,6 +10057,21 @@ INSERT INTO `type_seance` (`id_ts`) VALUES
 -- Structure de la table `utilisateurs`
 --
 
+--
+-- Structure de la table `compte`
+--
+
+CREATE TABLE `compte` (
+  `prenom` varchar(100) NOT NULL,
+  `nom` varchar(100) NOT NULL,
+  `mdp` varchar(255) NOT NULL,
+  PRIMARY KEY (`prenom`, `nom`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Structure de la table `utilisateurs`
+--
+
 CREATE TABLE `utilisateurs` (
   `nom_util` varchar(50) NOT NULL,
   `mdp` varchar(50) NOT NULL,
