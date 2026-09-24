@@ -163,6 +163,35 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     overflow-y: auto;
     margin-bottom: 16px;
 }
+#conv-input-row {
+    position: relative;
+    border: 1px solid #e5e7eb;
+    border-radius: 24px;
+    background: #ffffff;
+    align-items: center;
+    padding: 4px 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+#conv-input-row textarea {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding-top: 12px !important;
+}
+#conv-input-row .send-btn {
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111827 !important;
+    color: white !important;
+    border: none !important;
+}
 .sidebar-header {
     display: flex;
     justify-content: space-between;
@@ -269,6 +298,13 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     color: inherit !important;
     min-width: 0 !important;
     text-align: left !important;
+.header-profile-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 """
 
@@ -308,7 +344,11 @@ def build_app():
 
         # En-tête (Header)
         with gr.Column(elem_classes=["header"]):
-            gr.HTML(logo_html)
+            with gr.Row():
+                gr.HTML(logo_html, scale=1)
+                with gr.Row(elem_classes=["header-profile-row"], visible=False) as header_profile_container:
+                    header_user_html = gr.HTML(elem_classes=["header-user-html"])
+                    go_to_profile_btn = gr.Button("Profil", elem_classes=["profile-link-btn"], size="sm")
 
         # Contenu principal
         with gr.Column(elem_classes=["main-content"]):
@@ -390,13 +430,14 @@ def build_app():
                     conv_radio = gr.Radio(choices=[], show_label=False, container=False, elem_classes=["chat-list"])
                     
                     with gr.Row(elem_classes=["user-info-sidebar"]):
-                        sidebar_user_html = gr.HTML()
-                        go_to_profile_btn = gr.Button("Profil", elem_classes=["profile-link-btn"])
+                        gr.HTML("<div></div>")
 
                 with gr.Column(elem_id="conv-main"):
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
                         show_label=False,
+                        show_share_button=True,
+                        avatar_images=("https://ui-avatars.com/api/?name=User&background=f3f4f6&color=374151", "https://ui-avatars.com/api/?name=NaturSQL&background=0D8ABC&color=fff")
                     )
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
@@ -405,7 +446,7 @@ def build_app():
                             container=False,
                             scale=9
                         )
-                        send_btn = gr.Button("↑", min_width=50, scale=1)
+                        send_btn = gr.Button("↑", elem_classes=["send-btn"], scale=0)
 
             # --- Page de Documentation Utilisateur ---
             with gr.Column(visible=False, elem_classes=["doc-card"]) as doc_page:
@@ -490,7 +531,7 @@ def build_app():
                 return (
                     gr.update(), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
                     gr.update(visible=False), _status_html(result.message, ok=False), "", "",
-                    [], gr.update(choices=[]), {}, None, ""
+                    [], gr.update(choices=[]), {}, None, "", gr.update(visible=False)
                 )
             user = result.user
             gr.Info(result.message)
@@ -498,12 +539,12 @@ def build_app():
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, conv_map = _build_conv_choices(conversations)
             
-            sidebar_user_html_str = f'<img src="https://ui-avatars.com/api/?name={user.nom_util}&background=random" /> <span>{user.full_name}</span>'
+            header_user_html_str = f'<img src="https://ui-avatars.com/api/?name={user.nom_util}&background=random" style="border-radius:50%;width:28px;height:28px;margin-right:8px;vertical-align:middle;" />'
             
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                 gr.update(visible=True), "", _profile_card_md(user), _status_html(result.message, ok=True),
-                [], gr.update(choices=choices, value=None), conv_map, None, sidebar_user_html_str
+                gr.update(value=[], avatar_images=(f"https://ui-avatars.com/api/?name={user.nom_util}&background=f3f4f6&color=374151", "https://ui-avatars.com/api/?name=NaturSQL&background=0D8ABC&color=fff")), gr.update(choices=choices, value=None), conv_map, None, header_user_html_str, gr.update(visible=True)
             )
 
         signin_button.click(
@@ -512,7 +553,7 @@ def build_app():
             outputs=[
                 session_user, signin_page, signup_page, profile_page, conversation_page,
                 signin_status, profile_info, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, sidebar_user_html
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_html, header_profile_container
             ]
         )
 
@@ -558,7 +599,7 @@ def build_app():
             return (
                 None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "", "",
                 gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), "",
-                [], gr.update(choices=[]), {}, None, ""
+                gr.update(value=[]), gr.update(choices=[]), {}, None, "", gr.update(visible=False)
             )
 
         disconnect_button.click(
@@ -566,7 +607,7 @@ def build_app():
             outputs=[
                 session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, save_profile_button, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, sidebar_user_html
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_html, header_profile_container
             ]
         )
 
