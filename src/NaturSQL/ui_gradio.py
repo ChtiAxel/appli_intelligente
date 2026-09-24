@@ -60,7 +60,7 @@ html, body {
     margin-left: calc(-50vw + 50%) !important;
     margin-top: -1rem !important;
     box-sizing: border-box;
-    margin-bottom: 3rem !important;
+    margin-bottom: 0 !important;
 }
 .main-content {
     min-height: calc(100vh - 320px); 
@@ -70,7 +70,7 @@ html, body {
     padding: 2.5rem;
     border-radius: 0.5rem;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-    margin: 0 auto;
+    margin: 3rem auto 0 auto;
     max-width: 450px;
 }
 .profile-card {
@@ -78,7 +78,7 @@ html, body {
     padding: 2.5rem;
     border-radius: 0.5rem;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-    margin: 0 auto;
+    margin: 3rem auto 0 auto;
     max-width: 500px;
 }
 .footer {
@@ -124,7 +124,7 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     flex-direction: row;
     width: 100vw;
     margin-left: calc(-50vw + 50%) !important;
-    height: calc(100vh - 180px); /* Fill space between header and footer */
+    height: calc(100vh - 132px); /* Fill space without grey band */
     background: #f8f9fa;
     border-top: 1px solid #e5e7eb;
 }
@@ -160,11 +160,16 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
 .new-chat-btn {
     background: none !important;
     border: none !important;
-    font-size: 20px !important;
+    font-size: 24px !important;
     cursor: pointer;
     box-shadow: none !important;
-    padding: 0 !important;
+    padding: 0 4px !important;
     min-width: 0 !important;
+    line-height: 1 !important;
+    color: #374151 !important;
+}
+.new-chat-btn:hover {
+    color: #000000 !important;
 }
 .search-bar {
     margin-bottom: 16px;
@@ -178,28 +183,55 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     font-size: 12px;
     color: #6b7280;
     margin-bottom: 8px;
+    padding-left: 4px;
 }
 .chat-list {
     flex-grow: 1;
     overflow-y: auto;
+    background: transparent !important;
+    border: none !important;
 }
-.chat-list input[type="radio"] {
-    display: none;
+.chat-list .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 .chat-list label {
-    display: block;
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 6px;
-    margin-bottom: 4px;
-    font-size: 14px;
+    display: block !important;
+    padding: 10px 12px !important;
+    cursor: pointer !important;
+    border-radius: 8px !important;
+    border: none !important;
+    background: transparent !important;
+    margin-bottom: 2px !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 .chat-list label:hover {
-    background: #e5e7eb;
+    background: #e5e7eb !important;
 }
 .chat-list label.selected {
-    background: #e5e7eb;
-    font-weight: 600;
+    background: #e5e7eb !important;
+    font-weight: 600 !important;
+}
+.chat-list input[type="radio"] {
+    display: none !important;
+}
+.chat-list input[type="radio"] + span::before {
+    display: none !important; /* Hide radio circle */
+}
+.chat-list span {
+    margin-left: 0 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 13px !important;
+    color: #374151 !important;
 }
 .user-info-sidebar {
     margin-top: auto;
@@ -335,13 +367,13 @@ def build_app():
             with gr.Column(visible=False, elem_id="conv-page") as conversation_page:
                 with gr.Column(elem_id="conv-sidebar"):
                     with gr.Row(elem_classes=["sidebar-header"]):
-                        gr.HTML("<div>≡ NaturSQL</div>")
-                        new_chat_btn = gr.Button("⊕", elem_classes=["new-chat-btn"])
+                        gr.HTML("<div style='flex-grow: 1; margin: 0; padding: 0;'>≡ NaturSQL</div>", scale=1)
+                        new_chat_btn = gr.Button("+", elem_classes=["new-chat-btn"], scale=0, min_width=30)
                     
-                    search_bar = gr.Textbox(placeholder="Search", show_label=False, elem_classes=["search-bar"])
+                    search_bar = gr.Textbox(placeholder="Search", show_label=False, container=False, elem_classes=["search-bar"])
                     gr.HTML('<div class="chat-list-title">Chats</div>')
                     
-                    conv_radio = gr.Radio(choices=[], show_label=False, elem_classes=["chat-list"])
+                    conv_radio = gr.Radio(choices=[], show_label=False, container=False, elem_classes=["chat-list"])
                     
                     with gr.Row(elem_classes=["user-info-sidebar"]):
                         sidebar_user_html = gr.HTML()
