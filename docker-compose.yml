@@ -7,7 +7,7 @@ services:
       - "7860:7860"
     environment:
       OLLAMA_BASE_URL: http://10.22.28.190:11434
-      OLLAMA_MODEL: gemma2:latest
+      OLLAMA_MODEL: gemma4:26b
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: appia
