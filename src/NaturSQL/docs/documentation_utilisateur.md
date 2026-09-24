@@ -6,22 +6,23 @@ Bienvenue sur le guide d'utilisation de **NaturSQL**, votre assistant intelligen
 
 ### Sommaire
 
-1. [Présentation générale](#1-présentation-générale)
-2. [Lexique et définitions](#2-lexique-et-définitions)
-3. [Accéder à l'application](#3-accéder-à-lapplication)
-4. [Guide pas à pas](#4-guide-pas-à-pas)
-   - [4.1 Créer un compte utilisateur](#41-créer-un-compte-utilisateur)
-   - [4.2 Se connecter](#42-se-connecter)
-   - [4.3 Consulter et modifier son profil](#43-consulter-et-modifier-son-profil)
-   - [4.4 Poser une question à l'assistant](#44-poser-une-question-à-lassistant)
-   - [4.5 Se déconnecter](#45-se-déconnecter)
-5. [Comment bien formuler ses questions ?](#5-comment-bien-formuler-ses-questions-)
-6. [Exemples de questions types](#6-exemples-de-questions-types)
-7. [Foire Aux Questions (FAQ) & Dépannage](#7-foire-aux-questions-faq--dépannage)
-8. [Assistance et contact](#8-assistance-et-contact)
+1. [Présentation générale](#section-1)
+2. [Lexique et définitions](#section-2)
+3. [Accéder à l'application](#section-3)
+4. [Guide pas à pas](#section-4)
+   - [4.1 Créer un compte utilisateur](#section-4-1)
+   - [4.2 Se connecter](#section-4-2)
+   - [4.3 Consulter et modifier son profil](#section-4-3)
+   - [4.4 Poser une question à l'assistant](#section-4-4)
+   - [4.5 Se déconnecter](#section-4-5)
+5. [Comment bien formuler ses questions ?](#section-5)
+6. [Exemples de questions types](#section-6)
+7. [Foire Aux Questions (FAQ) & Dépannage](#section-7)
+8. [Assistance et contact](#section-8)
 
 ---
 
+<a id="section-1"></a>
 ### 1. Présentation générale
 
 **NaturSQL** est un outil en ligne intuitif conçu pour faciliter la recherche d'informations sur les enseignements, les enseignants, les plannings et les maquettes pédagogiques de votre établissement.
@@ -30,6 +31,7 @@ Traditionnellement, l'accès à ces informations nécessite de maîtriser des ou
 
 ---
 
+<a id="section-2"></a>
 ### 2. Lexique et définitions
 
 Pour faciliter votre lecture, voici quelques termes simples utilisés dans l'application :
@@ -41,6 +43,7 @@ Pour faciliter votre lecture, voici quelques termes simples utilisés dans l'app
 
 ---
 
+<a id="section-3"></a>
 ### 3. Accéder à l'application
 
 Pour utiliser NaturSQL, vous n'avez besoin d'installer aucun logiciel sur votre poste :
@@ -50,8 +53,10 @@ Pour utiliser NaturSQL, vous n'avez besoin d'installer aucun logiciel sur votre 
 
 ---
 
+<a id="section-4"></a>
 ### 4. Guide pas à pas
 
+<a id="section-4-1"></a>
 #### 4.1 Créer un compte utilisateur
 
 Lors de votre première visite, vous devez vous enregistrer pour accéder aux services.
@@ -69,6 +74,7 @@ Lors de votre première visite, vous devez vous enregistrer pour accéder aux se
 
 ---
 
+<a id="section-4-2"></a>
 #### 4.2 Se connecter
 
 1. Sur le formulaire de connexion (**Sign In**), saisissez :
@@ -82,6 +88,7 @@ Lors de votre première visite, vous devez vous enregistrer pour accéder aux se
 
 ---
 
+<a id="section-4-3"></a>
 #### 4.3 Consulter et modifier son profil
 
 Une fois connecté, votre fiche profil vous présente vos informations actuelles.
@@ -96,6 +103,7 @@ Une fois connecté, votre fiche profil vous présente vos informations actuelles
 
 ---
 
+<a id="section-4-4"></a>
 #### 4.4 Poser une question à l'assistant
 
 *(Fonctionnalité principale de recherche de données)*
@@ -109,6 +117,7 @@ Une fois connecté, votre fiche profil vous présente vos informations actuelles
 
 ---
 
+<a id="section-4-5"></a>
 #### 4.5 Se déconnecter
 
 Pour préserver la sécurité de vos informations, pensez à vous déconnecter lorsque vous quittez votre poste :
@@ -116,6 +125,7 @@ Pour préserver la sécurité de vos informations, pensez à vous déconnecter l
 
 ---
 
+<a id="section-5"></a>
 ### 5. Comment bien formuler ses questions ?
 
 Pour que l'assistant vous réponde de la manière la plus exacte possible, suivez ces quelques recommandations :
@@ -128,6 +138,7 @@ Pour que l'assistant vous réponde de la manière la plus exacte possible, suive
 
 ---
 
+<a id="section-6"></a>
 ### 6. Exemples de questions types
 
 Voici quelques exemples concrets que vous pouvez poser directement à NaturSQL :
@@ -142,6 +153,7 @@ Voici quelques exemples concrets que vous pouvez poser directement à NaturSQL :
 
 ---
 
+<a id="section-7"></a>
 ### 7. Foire Aux Questions (FAQ) & Dépannage
 
 **Q : L'assistant indique ne pas avoir compris ma question ou ne trouve aucun résultat.**  
@@ -158,6 +170,7 @@ Voici quelques exemples concrets que vous pouvez poser directement à NaturSQL :
 
 ---
 
+<a id="section-8"></a>
 ### 8. Assistance et contact
 
 Si vous rencontrez une difficulté non répertoriée dans ce guide ou pour toute demande d'évolution, vous pouvez contacter l'équipe support :
