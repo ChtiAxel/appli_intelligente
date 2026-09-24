@@ -436,7 +436,6 @@ def build_app():
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
                         show_label=False,
-                        show_share_button=True,
                         avatar_images=("https://ui-avatars.com/api/?name=User&background=f3f4f6&color=374151", "https://ui-avatars.com/api/?name=NaturSQL&background=0D8ABC&color=fff")
                     )
                     with gr.Row(elem_id="conv-input-row"):
@@ -820,4 +819,4 @@ def build_app():
     return demo
 
 if __name__ == "__main__":
-    build_app().launch(server_name="0.0.0.0", server_port=7860, share=False, theme=theme, css=custom_css, js=force_light_mode_js)
+    build_app().launch(server_name="0.0.0.0", server_port=7860, share=True, theme=theme, css=custom_css, js=force_light_mode_js)
