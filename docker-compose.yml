@@ -5,14 +5,11 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "7860:7860"
+    env_file: .env
     environment:
-      OLLAMA_BASE_URL: http://10.22.28.190:11434
-      OLLAMA_MODEL: gemma4:26b
+      # Dans Docker, l'appli joint la BDD via le réseau interne
       DB_HOST: db
       DB_PORT: 3306
-      DB_NAME: appia
-      DB_USER: appia
-      DB_PASSWORD: appia_password
     depends_on:
       db:
         condition: service_healthy
@@ -22,10 +19,9 @@ services:
     ports:
       - "3307:3306"
     environment:
-      MARIADB_DATABASE: appia
-      MARIADB_USER: appia
-      MARIADB_PASSWORD: appia_password
-      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./src/NaturSQL/docs/bdd/appia.sql:/docker-entrypoint-initdb.d/01-appia.sql:ro
