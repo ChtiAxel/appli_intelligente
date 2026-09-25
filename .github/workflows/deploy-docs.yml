@@ -41,6 +41,8 @@ jobs:
 
       - name: Configuration de GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Televersement de l'artefact Pages
         uses: actions/upload-pages-artifact@v3
