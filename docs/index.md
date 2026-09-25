@@ -45,6 +45,7 @@ graph LR
 
 ## 🚀 Navigation Rapide
 
+* 📥 **[Télécharger le Manuel Utilisateur (PDF)](assets/MANUEL_UTILISATEUR.pdf)** : Version complète et prête à l'impression.
 * 📖 **[Guide de Prise en Main](guide/prise-en-main.md)** : Apprenez à créer votre compte, vous connecter et gérer votre profil.
 * 💬 **[Poser une Question](guide/recherche.md)** : Découvrez comment interroger l'assistant et découvrez des exemples concrets.
 * 💡 **[Bonnes Pratiques](guide/bonnes-pratiques.md)** : Maximisez la précision des réponses fournies par l'assistant.
