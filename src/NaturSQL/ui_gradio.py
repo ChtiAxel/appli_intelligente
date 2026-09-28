@@ -434,7 +434,8 @@ def build_app():
                 with gr.Column(elem_id="conv-main"):
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
-                        show_label=False
+                        show_label=False,
+                        buttons=[]
                     )
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
