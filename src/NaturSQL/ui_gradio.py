@@ -163,6 +163,9 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     overflow-y: auto;
     margin-bottom: 16px;
 }
+.message-buttons { display: none !important; }
+.message-row .button-wrap { display: none !important; }
+.message-wrap .message-row button { display: none !important; }
 #conv-input-row {
     position: relative;
     border: 1px solid #e5e7eb;
@@ -435,7 +438,8 @@ def build_app():
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
                         show_label=False,
-                        buttons=[]
+                        buttons=[],
+                        feedback_options=None
                     )
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
