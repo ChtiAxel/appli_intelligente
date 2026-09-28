@@ -347,8 +347,8 @@ def build_app():
             with gr.Row():
                 gr.HTML(logo_html, scale=1)
                 with gr.Row(elem_classes=["header-profile-row"], visible=False) as header_profile_container:
-                    header_user_html = gr.HTML(elem_classes=["header-user-html"])
-                    go_to_profile_btn = gr.Button("Profil", elem_classes=["profile-link-btn"], size="sm")
+                    header_user_name = gr.HTML(elem_classes=["header-user-html"])
+                    go_to_profile_btn = gr.Button("👤 Mon Profil", variant="secondary", size="sm")
 
         # Contenu principal
         with gr.Column(elem_classes=["main-content"]):
@@ -390,7 +390,6 @@ def build_app():
             with gr.Column(visible=False, elem_classes=["profile-card"]) as profile_page:
                 btn_back_to_conv = gr.Button("← Retour aux conversations", size="sm")
                 with gr.Row():
-                    gr.HTML('<img src="https://ui-avatars.com/api/?name=User&background=random" style="border-radius: 50%; width: 80px; height: 80px;" />')
                     profile_info = gr.Markdown("Chargement du profil...")
                 
                 profile_status = gr.HTML()
@@ -435,8 +434,7 @@ def build_app():
                 with gr.Column(elem_id="conv-main"):
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
-                        show_label=False,
-                        avatar_images=("https://ui-avatars.com/api/?name=User&background=f3f4f6&color=374151", "https://ui-avatars.com/api/?name=NaturSQL&background=0D8ABC&color=fff")
+                        show_label=False
                     )
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
@@ -538,12 +536,12 @@ def build_app():
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, conv_map = _build_conv_choices(conversations)
             
-            header_user_html_str = f'<img src="https://ui-avatars.com/api/?name={user.nom_util}&background=random" style="border-radius:50%;width:28px;height:28px;margin-right:8px;vertical-align:middle;" />'
+            header_user_name_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{user.full_name}</div>'
             
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                 gr.update(visible=True), "", _profile_card_md(user), _status_html(result.message, ok=True),
-                gr.update(value=[], avatar_images=(f"https://ui-avatars.com/api/?name={user.nom_util}&background=f3f4f6&color=374151", "https://ui-avatars.com/api/?name=NaturSQL&background=0D8ABC&color=fff")), gr.update(choices=choices, value=None), conv_map, None, header_user_html_str, gr.update(visible=True)
+                gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True)
             )
 
         signin_button.click(
@@ -552,7 +550,7 @@ def build_app():
             outputs=[
                 session_user, signin_page, signup_page, profile_page, conversation_page,
                 signin_status, profile_info, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_html, header_profile_container
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container
             ]
         )
 
@@ -606,7 +604,7 @@ def build_app():
             outputs=[
                 session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, save_profile_button, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_html, header_profile_container
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container
             ]
         )
 
