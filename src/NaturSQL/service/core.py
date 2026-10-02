@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from NaturSQL.ollama_client.llm import LLMClient
 from NaturSQL.storage.db import get_connection
+from shared.logging import get_logger
+
+logger = get_logger("service.core")
 
 
 ALLOWED_TABLES = {
@@ -57,17 +62,55 @@ def validate_read_only_sql(sql: str) -> str:
     return normalized
 
 
-def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list[dict[str, Any]]]:
-    """Translate a question to safe SQL and execute it against MariaDB."""
-    if not question or not question.strip():
-        raise ValueError("La question ne peut pas etre vide.")
-    client = llm or LLMClient()
-    sql = validate_read_only_sql(client.generate_sql(question.strip(), database_schema()))
+def execute_query(sql: str) -> list[dict[str, Any]]:
+    """Execute a validated read-only query (synchronous, pymysql)."""
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(sql)
-            rows = list(cursor.fetchall())
-    return sql, rows
+            return list(cursor.fetchall())
+
+
+@dataclass
+class AskResult:
+    """Outcome of the two-step pipeline for the UI layer."""
+
+    sql: str
+    rows: list[dict[str, Any]]
+    explanation: Optional[str]
+
+
+async def text_to_sql(question: str, llm: LLMClient) -> str:
+    """Prompt 1: inject the database schema and get a validated read-only query."""
+    schema = await asyncio.to_thread(database_schema)
+    return validate_read_only_sql(await llm.generate_sql(question, schema))
+
+
+async def explain_results(question: str, rows: list[dict[str, Any]], llm: LLMClient) -> str:
+    """Prompt 2: turn the raw rows into a French summary."""
+    return await llm.explain_results(question, rows)
+
+
+async def ask_database(question: str, llm: LLMClient | None = None) -> AskResult:
+    """Full pipeline: question -> SQL -> rows -> explanation.
+
+    pymysql is blocking, so DB calls run in a worker thread to keep the
+    event loop (and the Gradio UI) responsive. If only the explanation
+    step fails, the rows are still returned with `explanation=None`.
+    """
+    if not question or not question.strip():
+        raise ValueError("La question ne peut pas etre vide.")
+    question = question.strip()
+    client = llm or LLMClient()
+
+    sql = await text_to_sql(question, client)
+    rows = await asyncio.to_thread(execute_query, sql)
+
+    try:
+        explanation: Optional[str] = await explain_results(question, rows, client)
+    except Exception:
+        logger.exception("Echec de la generation de l'explication")
+        explanation = None
+    return AskResult(sql, rows, explanation)
 
 
 def health_check() -> bool:
