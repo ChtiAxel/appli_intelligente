@@ -1,0 +1,65 @@
+site_name: NaturSQL - Documentation
+site_description: Documentation utilisateur et technique du projet NaturSQL
+site_author: Axel NAVE, Raphael DEROO, Rémy RAMPELBERGHE, Noa GAILLARD
+repo_url: https://github.com/ChtiAxel/appli_intelligente
+repo_name: ChtiAxel/appli_intelligente
+
+theme:
+  name: material
+  language: fr
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    # Mode clair
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Passer au mode sombre
+    # Mode sombre
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Passer au mode clair
+
+nav:
+  - Accueil: index.md
+  - Guide Utilisateur:
+      - Prise en main: guide/prise-en-main.md
+      - Poser une question: guide/recherche.md
+      - Bonnes pratiques: guide/bonnes-pratiques.md
+      - FAQ & Dépannage: guide/faq.md
+  - Le Projet:
+      - Cahier des charges: projet/cahier-des-charges.md
+      - Architecture: projet/architecture.md
+  - Légal:
+      - Mentions légales: legal/mentions-legales.md
+      - Politique de confidentialité: legal/politique-confidentialite.md
+      - Conditions Générales d'Utilisation: legal/conditions-generales-utilisation.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - tables
+  - attr_list
