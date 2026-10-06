@@ -768,7 +768,7 @@ def build_app():
 
         edit_profile_button.click(
             start_edit,
-            inputs=session_user,
+            inputs=[session_user],
             outputs=[edit_first_name, edit_last_name, profile_edit_form, edit_profile_button]
         )
 
