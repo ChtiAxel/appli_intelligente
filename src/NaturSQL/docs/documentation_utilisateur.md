@@ -1,29 +1,26 @@
-# Manuel d'Utilisation - NaturSQL
+# Documentation Utilisateur - NaturSQL
 
-Bienvenue sur le guide d'utilisation de **NaturSQL**, votre assistant intelligent de consultation des données pédagogiques. Ce guide a été conçu pour vous accompagner pas à pas dans la prise en main de l'application, sans aucun prérequis technique.
+* **Version :** 1.0
+* **Public cible :** Responsables pédagogiques, secrétariats, enseignants
 
----
-
-### Sommaire
-
-1. [Présentation générale](#section-1)
-2. [Lexique et définitions](#section-2)
-3. [Accéder à l'application](#section-3)
-4. [Guide pas à pas](#section-4)
-   - [4.1 Créer un compte utilisateur](#section-4-1)
-   - [4.2 Se connecter](#section-4-2)
-   - [4.3 Consulter et modifier son profil](#section-4-3)
-   - [4.4 Poser une question à l'assistant](#section-4-4)
-   - [4.5 Se déconnecter](#section-4-5)
-5. [Comment bien formuler ses questions ?](#section-5)
-6. [Exemples de questions types](#section-6)
-7. [Foire Aux Questions (FAQ) & Dépannage](#section-7)
-8. [Assistance et contact](#section-8)
+## Sommaire
+1. [Présentation générale](#1-presentation-generale)
+2. [Lexique et définitions](#2-lexique-et-definitions)
+3. [Accéder à l'application](#3-acceder-a-lapplication)
+4. [Guide pas à pas](#4-guide-pas-a-pas)
+   - [4.1 Créer un compte utilisateur](#41-creer-un-compte-utilisateur)
+   - [4.2 Se connecter](#42-se-connecter)
+   - [4.3 Consulter et modifier son profil](#43-consulter-et-modifier-son-profil)
+   - [4.4 Utiliser le Chatbot et l'Historique (Sidebar)](#44-utiliser-le-chatbot-et-lhistorique-sidebar)
+   - [4.5 Se déconnecter](#45-se-deconnecter)
+5. [Comment bien formuler ses questions ?](#5-comment-bien-formuler-ses-questions)
+6. [Exemples de questions types](#6-exemples-de-questions-types)
+7. [Foire Aux Questions (FAQ) & Dépannage](#7-foire-aux-questions-faq--depannage)
+8. [Assistance et contact](#8-assistance-et-contact)
 
 ---
 
-<a id="section-1"></a>
-### 1. Présentation générale
+## 1. Présentation générale
 
 **NaturSQL** est un outil en ligne intuitif conçu pour faciliter la recherche d'informations sur les enseignements, les enseignants, les plannings et les maquettes pédagogiques de votre établissement.
 
@@ -31,102 +28,102 @@ Traditionnellement, l'accès à ces informations nécessite de maîtriser des ou
 
 ---
 
-<a id="section-2"></a>
-### 2. Lexique et définitions
+## 2. Lexique et définitions
 
 Pour faciliter votre lecture, voici quelques termes simples utilisés dans l'application :
 
 * **Assistant intelligent :** Module logiciel capable de comprendre une question formulée en langage courant et de restituer la réponse correspondante.
 * **Données pédagogiques :** Ensemble des informations enregistrées concernant les cours, matières, enseignants, volumes horaires (CM, TD, TP) et prérequis.
-* **Identifiant :** Nom d'utilisateur unique généré lors de votre inscription (par exemple sous la forme `nom.prenom`), utilisé pour vous connecter.
-* **Session :** Période pendant laquelle vous êtes connecté à l'application en toute sécurité.
+* **Historique (Sidebar) :** Panneau latéral qui conserve la trace de vos conversations passées.
+* **Identifiant :** Nom d'utilisateur unique généré lors de votre inscription, utilisé pour vous connecter.
+* **SQL :** Le code généré par l'IA pour interroger la base de données. Il est affiché par transparence au-dessus de vos résultats.
 
 ---
 
-<a id="section-3"></a>
-### 3. Accéder à l'application
+## 3. Accéder à l'application
 
 Pour utiliser NaturSQL, vous n'avez besoin d'installer aucun logiciel sur votre poste :
 1. Munissez-vous d'un navigateur web récent (Google Chrome, Mozilla Firefox, Microsoft Edge ou Safari).
-2. Saisissez dans la barre d'adresse le lien communiqué par votre administrateur (par exemple : `http://localhost:7860` ou l'adresse intranet dédiée).
+2. Saisissez dans la barre d'adresse le lien communiqué par votre administrateur (par exemple : `http://localhost:7860`).
 3. La page d'accueil de NaturSQL s'affiche instantanément.
 
 ---
 
-<a id="section-4"></a>
-### 4. Guide pas à pas
+## 4. Guide pas à pas
 
-<a id="section-4-1"></a>
-#### 4.1 Créer un compte utilisateur
+### 4.1 Créer un compte utilisateur
 
 Lors de votre première visite, vous devez vous enregistrer pour accéder aux services.
 
-1. Sur la page d'accueil, cliquez sur le lien **« Créer un compte »** situé en bas du bloc central.
+1. Sur la page d'accueil, cliquez sur le bouton **« Créer un compte »**.
 2. Remplissez le formulaire avec vos informations :
    - **Prénom** (ex. : *Jean*)
    - **Nom** (ex. : *Dupont*)
    - **Mot de passe** : Choisissez un mot de passe sécurisé (au moins 8 caractères, dont au moins une majuscule, un chiffre et un caractère spécial).
    - **Confirmer le mot de passe** : Retapez à l'identique votre mot de passe.
 3. Cliquez sur le bouton **« S'inscrire »**.
-4. Un message vous confirme la création du compte et vous rappelle votre identifiant (format : `dupont.jean`).
+4. Un message vous confirme la création du compte.
 
-*(Emplacement pour capture d'écran du formulaire d'inscription)*
+*(📷 [Cliquez ici pour aller à la page et prendre la capture d'écran de l'inscription](http://localhost:7860) : remplacez ensuite ce texte par l'image MkDocs)*
 
 ---
 
-<a id="section-4-2"></a>
-#### 4.2 Se connecter
+### 4.2 Se connecter
 
 1. Sur le formulaire de connexion (**Sign In**), saisissez :
    - Votre **Prénom** (ex. : *Jean*).
    - Votre **Nom** (ex. : *Dupont*).
    - Votre **Mot de passe**.
 2. Cliquez sur le bouton **« Se connecter »**.
-3. Vous êtes automatiquement redirigé vers votre espace personnel.
+3. Vous êtes automatiquement redirigé vers l'interface principale.
 
-*(Emplacement pour capture d'écran du formulaire de connexion avec Prénom, Nom et Mot de passe)*
+*(📷 [Cliquez ici pour aller à la page et prendre la capture d'écran de connexion](http://localhost:7860) : remplacez ensuite ce texte par l'image MkDocs)*
 
 ---
 
-<a id="section-4-3"></a>
-#### 4.3 Consulter et modifier son profil
+### 4.3 Consulter et modifier son profil
 
-Une fois connecté, votre fiche profil vous présente vos informations actuelles.
+Une fois connecté, vous pouvez accéder à tout moment à vos informations.
 
-1. **Consulter :** Vous visualisez votre nom complet et votre identifiant.
+1. **Consulter :** En haut à droite de l'écran, cliquez sur le bouton **« Mon Profil »** pour visualiser vos informations.
 2. **Modifier ses informations :**
-   - Cliquez sur **« Modifier le profil »**.
+   - Sur la page Profil, cliquez sur **« Modifier le profil »**.
    - Ajustez votre prénom ou votre nom si nécessaire.
    - Cliquez sur le bouton **« Enregistrer »** pour valider les modifications.
+3. **Retour** : Cliquez sur le bouton **« Retour aux conversations »** pour revenir à l'assistant.
 
-*(Emplacement pour capture d'écran de profil)*
-
----
-
-<a id="section-4-4"></a>
-#### 4.4 Poser une question à l'assistant
-
-*(Fonctionnalité principale de recherche de données)*
-
-1. Dans la zone de conversation, repérez le champ de texte en bas de l'écran.
-2. Saisissez votre question en français courant (voir nos conseils ci-dessous).
-3. Validez en appuyant sur la touche **Entrée** de votre clavier ou en cliquant sur **« Envoyer »**.
-4. L'assistant analyse votre demande, consulte la base d'informations et vous répond en quelques instants.
-
-*(Emplacement pour capture d'écran de l'espace de discussion)*
+*(📷 [Cliquez ici pour aller au profil et prendre la capture d'écran](http://localhost:7860) : remplacez ensuite ce texte par l'image MkDocs)*
 
 ---
 
-<a id="section-4-5"></a>
-#### 4.5 Se déconnecter
+### 4.4 Utiliser le Chatbot et l'Historique (Sidebar)
+
+L'interface de conversation est divisée en deux parties : **la Sidebar (à gauche)** et **le Chatbot (à droite)**.
+
+#### Poser une question au Chatbot
+1. Dans la zone de conversation à droite, repérez le champ de saisie en bas.
+2. Saisissez votre question en français courant.
+3. Validez en appuyant sur la touche **Entrée** de votre clavier ou en cliquant sur le bouton noir d'envoi.
+4. L'assistant analyse votre demande, et vous répond avec le code SQL généré et le résultat de la base de données.
+
+#### Gérer son historique
+1. **Nouvelle discussion :** Cliquez sur le bouton **« + »** en haut à gauche pour démarrer une nouvelle conversation vierge.
+2. **Rechercher :** Utilisez la barre "Search" de la sidebar pour retrouver d'anciens chats.
+3. **Reprendre un chat :** Cliquez sur un des chats listés dans la sidebar pour le recharger instantanément.
+
+*(📷 [Cliquez ici pour aller à l'interface de chat et prendre la capture d'écran globale](http://localhost:7860) : remplacez ensuite ce texte par l'image MkDocs)*
+
+---
+
+### 4.5 Se déconnecter
 
 Pour préserver la sécurité de vos informations, pensez à vous déconnecter lorsque vous quittez votre poste :
-- Cliquez sur le bouton rouge **« Déconnexion »** accessible depuis votre profil.
+1. Cliquez sur **« Mon Profil »** en haut à droite.
+2. Cliquez sur le bouton rouge **« Déconnexion »**.
 
 ---
 
-<a id="section-5"></a>
-### 5. Comment bien formuler ses questions ?
+## 5. Comment bien formuler ses questions ?
 
 Pour que l'assistant vous réponde de la manière la plus exacte possible, suivez ces quelques recommandations :
 
@@ -134,12 +131,11 @@ Pour que l'assistant vous réponde de la manière la plus exacte possible, suive
   - *Moins efficace :* « Qui donne des cours ? »
   - *Très efficace :* « Quels enseignants interviennent en travaux pratiques (TP) pour la matière Informatique cette année ? »
 - **Évitez les formulations vagues :** Précisez si vous souhaitez une liste de noms, un volume d'heures ou une date.
-- **Posez une seule question à la fois :** Découpez les demandes complexes en deux questions successives.
+- **Analysez la réponse SQL :** Si le résultat texte vous paraît incomplet, vérifiez le bloc de code SQL généré juste au-dessus. Il indique exactement comment la base a été interrogée.
 
 ---
 
-<a id="section-6"></a>
-### 6. Exemples de questions types
+## 6. Exemples de questions types
 
 Voici quelques exemples concrets que vous pouvez poser directement à NaturSQL :
 
@@ -153,25 +149,26 @@ Voici quelques exemples concrets que vous pouvez poser directement à NaturSQL :
 
 ---
 
-<a id="section-7"></a>
-### 7. Foire Aux Questions (FAQ) & Dépannage
+## 7. Foire Aux Questions (FAQ) & Dépannage
 
-**Q : L'assistant indique ne pas avoir compris ma question ou ne trouve aucun résultat.**  
-**R :** Essayez de reformuler votre phrase en utilisant des termes plus simples (par exemple en précisant le nom exact d'une matière ou en écrivant « Travaux Dirigés » au lieu d'abréviations ambiguës).
+**Q : L'assistant affiche une erreur SQL ou indique qu'il ne peut pas exécuter ma requête.**  
+**R :** Par mesure de sécurité, l'application bloque automatiquement toute requête qui tente de modifier ou de supprimer des données (sécurité stricte en Lecture Seule). Si l'IA a généré une telle requête par erreur, essayez de reformuler votre question plus simplement.
 
-**Q : La réponse semble incomplète ou ne correspond pas à ce que j'attendais.**  
-**R :** L'assistant base ses réponses exclusivement sur les données enregistrées dans la base de l'établissement. Si une information n'a pas encore été saisie pour l'année scolaire en cours, elle ne pourra pas être devinée. N'hésitez pas à préciser l'année scolaire souhaitée (ex. : *« pour l'année 2024-2025 »*).
+**Q : Ma conversation a disparu de l'historique dans la Sidebar !**  
+**R :** Vérifiez que vous n'avez pas tapé de texte par erreur dans la barre de recherche ("Search") de la sidebar, ce qui masquerait vos autres conversations. Sinon, cliquez sur le bouton "+" pour rafraîchir l'affichage.
+
+**Q : L'assistant indique qu'aucune donnée n'a été trouvée, pourtant je suis sûr de moi.**  
+**R :** Essayez de reformuler votre phrase sans utiliser d'abréviations ambiguës. Notez également que l'assistant base ses réponses **exclusivement sur les données enregistrées**. Si une information n'a pas encore été saisie, elle ne pourra pas être devinée.
+
+**Q : Que faire si un message d'erreur rouge s'affiche lors de mon inscription ?**  
+**R :** Vérifiez les critères de votre mot de passe. Il doit obligatoirement faire 8 caractères minimum et contenir au moins 1 majuscule, 1 chiffre et 1 caractère spécial (ex: `!`, `?`, `@`).
 
 **Q : J'ai oublié mon identifiant de connexion.**  
-**R :** Votre identifiant correspond à la structure `nom.prenom` saisie lors de votre enregistrement (en minuscules). En cas de doute, contactez le support informatique.
-
-**Q : Que faire si un message d'erreur s'affiche lors de la connexion ?**  
-**R :** Vérifiez que vous avez correctement saisi votre mot de passe en respectant les majuscules et minuscules. Si le problème persiste, rafraîchissez la page (touche `F5`).
+**R :** Votre identifiant correspond à votre Prénom et votre Nom saisis lors de votre enregistrement.
 
 ---
 
-<a id="section-8"></a>
-### 8. Assistance et contact
+## 8. Assistance et contact
 
 Si vous rencontrez une difficulté non répertoriée dans ce guide ou pour toute demande d'évolution, vous pouvez contacter l'équipe support :
 
