@@ -28,10 +28,10 @@ logo_path = os.path.join(os.path.dirname(__file__), "docs", "mockup", "logo.png"
 try:
     with open(logo_path, "rb") as f:
         b64_logo = base64.b64encode(f.read()).decode("utf-8")
-    logo_html = f'<div style="display: flex; align-items: center; gap: 10px;"><img src="data:image/png;base64,{b64_logo}" style="height: 32px;" /> <h2 style="margin:0; font-weight:600; color:black;">NaturSQL</h2></div>'
+    logo_html = f'<a href="#" style="text-decoration: none;" onclick="document.getElementById(\'btn-go-home\').click(); return false;"><div style="display: flex; align-items: center; gap: 10px;"><img src="data:image/png;base64,{b64_logo}" style="height: 32px;" /> <h2 style="margin:0; font-weight:600; color:black;">NaturSQL</h2></div></a>'
 except Exception:
     b64_logo = ""
-    logo_html = '<h2 style="margin:0; font-weight:600; color:black;">NaturSQL</h2>'
+    logo_html = '<a href="#" style="text-decoration: none;" onclick="document.getElementById(\'btn-go-home\').click(); return false;"><h2 style="margin:0; font-weight:600; color:black;">NaturSQL</h2></a>'
 
 # Script to remove dark mode forcefully from Gradio
 force_light_mode_js = """
@@ -606,7 +606,7 @@ def build_app():
 
         # Pied de page (Footer)
         with gr.Column(elem_classes=["footer"]):
-            footer_logo = f'<img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" />' if b64_logo else ""
+            footer_logo = f'<a href="#" style="text-decoration: none;" onclick="document.getElementById(\'btn-go-home\').click(); return false;"><img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" /></a>' if b64_logo else ""
                 
             gr.HTML(f"""
             <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
@@ -627,6 +627,7 @@ def build_app():
             """)
             
             # Boutons invisibles pour déclencher l'affichage des pages depuis le footer HTML
+            btn_go_home = gr.Button(elem_id="btn-go-home", elem_classes=["hidden-btn"])
             btn_show_doc = gr.Button(elem_id="btn-show-doc", elem_classes=["hidden-btn"])
             btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
@@ -649,6 +650,7 @@ def build_app():
 
         page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, doc_page, conversation_page]
         
+        btn_go_home.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_show_doc.click(lambda s: go_to_page("doc", s), inputs=[session_user], outputs=page_outputs)
         btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
         btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
