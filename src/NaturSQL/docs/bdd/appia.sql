@@ -10634,7 +10634,52 @@ ALTER TABLE `utilisateurs`
 --
 ALTER TABLE `volume_pn`
   ADD CONSTRAINT `volume_pn_id_cours_fkey` FOREIGN KEY (`id_cours`) REFERENCES `cours` (`id_cours`);
+
+-- --------------------------------------------------------
+-- Création de l'utilisateur lecture seule pour NaturSQL
+-- --------------------------------------------------------
+
+CREATE USER IF NOT EXISTS 'natursql_readonly'@'%' IDENTIFIED BY 'readonly_secret';
+CREATE USER IF NOT EXISTS 'natursql_readonly'@'localhost' IDENTIFIED BY 'readonly_secret';
+
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'natursql_readonly'@'%';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'natursql_readonly'@'localhost';
+
+GRANT SELECT ON `appia`.`enseignants` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`enseignants` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`cours` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`cours` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`seances` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`seances` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`maquette` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`maquette` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`possede` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`possede` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`competences` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`competences` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`formations` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`formations` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`formation_groupe` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`formation_groupe` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`semaines` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`semaines` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`statut` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`statut` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`type_seance` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`type_seance` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`volume_pn` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`volume_pn` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`details` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`details` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`annee_scolaire` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`annee_scolaire` TO 'natursql_readonly'@'localhost';
+GRANT SELECT ON `appia`.`maquette_ens` TO 'natursql_readonly'@'%';
+GRANT SELECT ON `appia`.`maquette_ens` TO 'natursql_readonly'@'localhost';
+
+FLUSH PRIVILEGES;
+
 COMMIT;
+
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

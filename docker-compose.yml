@@ -22,9 +22,11 @@ services:
       MARIADB_DATABASE: ${DB_NAME}
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./src/NaturSQL/docs/bdd/appia.sql:/docker-entrypoint-initdb.d/01-appia.sql:ro
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
     healthcheck:
       test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s

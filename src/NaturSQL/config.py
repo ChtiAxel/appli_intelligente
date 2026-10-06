@@ -39,3 +39,12 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 DB_NAME = _require("DB_NAME")
 DB_USER = _require("DB_USER")
 DB_PASSWORD = _require("DB_PASSWORD")
+
+# Utilisateur lecture seule pour les requêtes générées par l'IA
+DB_READONLY_USER = os.getenv("DB_READONLY_USER", "natursql_readonly")
+DB_READONLY_PASSWORD = os.getenv("DB_READONLY_PASSWORD", "readonly_secret")
+
+# Limites d'exécution pour les requêtes IA
+DB_QUERY_TIMEOUT = float(os.getenv("DB_QUERY_TIMEOUT", "3.0"))
+DB_MAX_ROWS = int(os.getenv("DB_MAX_ROWS", "50"))
+
