@@ -27,5 +27,58 @@ class UiAndLoggingTests(unittest.TestCase):
         auth_service.assert_called_once_with()
 
 
+    def test_profile_card_html(self):
+        from NaturSQL.ui_gradio import _profile_card_html
+        from NaturSQL.storage.users import User
+
+        # None user
+        empty_html = _profile_card_html(None)
+        self.assertIn("profile-header", empty_html)
+        self.assertIn("Erreur", empty_html)
+
+        # Standard user
+        user = User(prenom="Jean", nom="Dupont", mdp="hash")
+        html = _profile_card_html(user)
+        self.assertIn("profile-header", html)
+        self.assertIn("profile-avatar", html)
+        self.assertIn("JD", html)
+        self.assertIn("profile-name", html)
+        self.assertIn("Jean Dupont", html)
+        self.assertIn("profile-id", html)
+        self.assertIn("jean.dupont", html)
+        self.assertIn("profile-role", html)
+        self.assertIn("Utilisateur Standard", html)
+
+        # Edge cases: stripped spaces, single name fallback
+        user_spaces = User(prenom="  Alice  ", nom="  Smith  ", mdp="hash")
+        html_spaces = _profile_card_html(user_spaces)
+        self.assertIn("Alice Smith", html_spaces)
+        self.assertIn("alice.smith", html_spaces)
+        self.assertIn("AS", html_spaces)
+
+
+    @patch("NaturSQL.ui_gradio.AuthService")
+    @patch("NaturSQL.ui_gradio.ConversationStorage")
+    def test_profile_layout_and_css(self, conversation_storage, auth_service):
+        from NaturSQL.ui_gradio import custom_css, build_app
+        import gradio as gr
+
+        self.assertIn(".profile-card", custom_css)
+        self.assertIn(".profile-header", custom_css)
+        self.assertIn(".profile-role", custom_css)
+        self.assertIn(".profile-id", custom_css)
+        self.assertIn(".profile-accordion", custom_css)
+        self.assertIn(".profile-btn-row", custom_css)
+
+        app = build_app()
+        # Find accordion block in app components
+        accordions = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Accordion)
+        ]
+        self.assertTrue(len(accordions) >= 1)
+        self.assertEqual(accordions[0].label, "Modifier mes informations")
+
+
 if __name__ == "__main__":
     unittest.main()
