@@ -56,6 +56,26 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn("alice.smith", html_spaces)
         self.assertIn("AS", html_spaces)
 
+        # Accents and non-ASCII characters
+        user_accents = User(prenom="Éléonore", nom="François", mdp="hash")
+        html_accents = _profile_card_html(user_accents)
+        self.assertIn("Éléonore François", html_accents)
+        self.assertIn("éléonore.françois", html_accents)
+        self.assertIn("ÉF", html_accents)
+
+        # Multi-word names with internal spaces
+        user_multi = User(prenom="Jean  Paul", nom="De  La  Tour", mdp="hash")
+        html_multi = _profile_card_html(user_multi)
+        self.assertIn("Jean Paul De La Tour", html_multi)
+        self.assertIn("jean-paul.de-la-tour", html_multi)
+        self.assertNotIn("jean  paul", html_multi)
+
+        # XSS / HTML escaping
+        user_xss = User(prenom="<script>alert(1)</script>", nom="Smith", mdp="hash")
+        html_xss = _profile_card_html(user_xss)
+        self.assertNotIn("<script>", html_xss)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html_xss)
+
 
     @patch("NaturSQL.ui_gradio.AuthService")
     @patch("NaturSQL.ui_gradio.ConversationStorage")
@@ -78,6 +98,15 @@ class UiAndLoggingTests(unittest.TestCase):
         ]
         self.assertTrue(len(accordions) >= 1)
         self.assertEqual(accordions[0].label, "Modifier mes informations")
+
+        # Verify textboxes inside profile edit are single-line (lines=1)
+        edit_textboxes = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Textbox) and comp.label in ("Prénom *", "Nom *")
+        ]
+        self.assertTrue(len(edit_textboxes) >= 2)
+        for tb in edit_textboxes:
+            self.assertEqual(tb.lines, 1)
 
 
 if __name__ == "__main__":
