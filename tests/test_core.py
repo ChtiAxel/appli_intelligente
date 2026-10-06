@@ -31,14 +31,11 @@ class CoreTests(unittest.TestCase):
         cursor.fetchall.return_value = [{"count": 2}]
         llm = Mock()
         llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM details")
-        llm.explain_results = AsyncMock(return_value="Il y a 2 lignes.")
         with patch.object(core, "database_schema", return_value="TABLE details: id int"):
-            result = asyncio.run(core.ask_database("Combien ?", llm))
-        self.assertEqual(result.sql, "SELECT COUNT(*) AS count FROM details")
-        self.assertEqual(result.rows, [{"count": 2}])
-        self.assertEqual(result.explanation, "Il y a 2 lignes.")
+            sql, rows = asyncio.run(core.ask_database("Combien ?", llm))
+        self.assertEqual(sql, "SELECT COUNT(*) AS count FROM details")
+        self.assertEqual(rows, [{"count": 2}])
         llm.generate_sql.assert_awaited_once_with("Combien ?", "TABLE details: id int")
-        llm.explain_results.assert_awaited_once_with("Combien ?", [{"count": 2}])
 
     def test_health_check(self):
         self.assertTrue(core.health_check())

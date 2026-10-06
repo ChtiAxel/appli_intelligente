@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Sequence
-
 from .async_client import AsyncOllamaClient
-
-# Nombre maximal de lignes envoyées au LLM pour l'explication des résultats.
-MAX_ROWS_FOR_EXPLANATION = 50
 
 SQL_SYSTEM_PROMPT = (
     "Tu es un assistant SQL MariaDB. Genere uniquement une requete "
@@ -39,15 +33,6 @@ SQL_FEW_SHOTS = (
     "SQL: SELECT DISTINCT nom_ens, prenom_ens FROM details WHERE intitule_cours = 'Qualité de développement' AND type_seance LIKE 'TP%';\n\n"
 )
 
-EXPLAIN_SYSTEM_PROMPT = (
-    "Tu es un assistant qui explique des résultats de base de données à un "
-    "utilisateur non technique. Réponds en français, en 2 à 5 phrases claires. "
-    "Appuie-toi uniquement sur les données fournies : n'invente aucune valeur. "
-    "Si les données sont vides, dis simplement qu'aucun résultat ne correspond. "
-    "Ne réécris pas le tableau complet et ne parle pas de SQL."
-)
-
-
 def _strip_markdown_fence(text: str) -> str:
     """Retire un éventuel bloc ```sql ... ``` renvoyé malgré la consigne."""
     text = text.strip()
@@ -59,38 +44,17 @@ def _strip_markdown_fence(text: str) -> str:
     return text
 
 
-def _rows_to_prompt(rows: Sequence[dict[str, Any]]) -> str:
-    """Sérialise les lignes en JSON lisible (dates/décimaux convertis en texte)."""
-    shown = list(rows[:MAX_ROWS_FOR_EXPLANATION])
-    data = json.dumps(shown, ensure_ascii=False, default=str, indent=1)
-    if len(rows) > len(shown):
-        data += f"\n(... {len(rows) - len(shown)} lignes supplémentaires non affichées)"
-    return data
-
-
 class LLMClient:
-    """Adaptateur applicatif : deux prompts asynchrones sur Ollama."""
+    """Adaptateur applicatif asynchrone autour d'Ollama."""
 
     def __init__(self, client: AsyncOllamaClient | None = None) -> None:
         self.client = client or AsyncOllamaClient()
 
     async def generate_sql(self, question: str, schema: str) -> str:
-        """Prompt 1 : génère une requête SQL en lecture seule depuis une question."""
+        """Génère une requête SQL en lecture seule depuis une question."""
         response = await self.client.generate(
             f"Schema autorise:\n{schema}\n\n{SQL_FEW_SHOTS}Question:\n{question}",
             system=SQL_SYSTEM_PROMPT,
             options={"temperature": 0},
         )
         return _strip_markdown_fence(response)
-
-    async def explain_results(self, question: str, rows: Sequence[dict[str, Any]]) -> str:
-        """Prompt 2 : rédige une synthèse en français à partir des données brutes."""
-        response = await self.client.generate(
-            f"Question de l'utilisateur :\n{question}\n\n"
-            f"Nombre total de lignes : {len(rows)}\n"
-            f"Données (JSON) :\n{_rows_to_prompt(rows)}\n\n"
-            "Rédige la synthèse.",
-            system=EXPLAIN_SYSTEM_PROMPT,
-            options={"temperature": 0.2},
-        )
-        return response.strip()

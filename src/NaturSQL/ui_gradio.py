@@ -651,13 +651,11 @@ def build_app():
         )
         # -------------------- Conversation: Core Chat Logic -------------------
 
-        def _format_bot_response(sql: str | None, results: list[dict] | None, explanation: str | None = None) -> str:
+        def _format_bot_response(sql: str | None, results: list[dict] | None) -> str:
             if not sql and not results:
                 return "Désolé, je n'ai pas pu comprendre la demande ou aucune donnée n'a été trouvée."
             
             md_parts = []
-            if explanation:
-                md_parts.append(explanation)
             if sql:
                 lines = sql.strip().split("\n")
                 code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
@@ -739,9 +737,9 @@ def build_app():
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
 
             try:
-                answer = await ask_database(user_msg)
-                bot_md = _format_bot_response(answer.sql, answer.rows, answer.explanation)
-                await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md, answer.sql)
+                sql_str, results = await ask_database(user_msg)
+                bot_md = _format_bot_response(sql_str, results)
+                await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md, sql_str)
             except Exception as e:
                 bot_md = f"**Erreur :** {str(e)}"
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md)
