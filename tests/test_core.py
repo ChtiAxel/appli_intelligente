@@ -1,5 +1,6 @@
+import asyncio
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from NaturSQL.service import core
 
@@ -29,12 +30,12 @@ class CoreTests(unittest.TestCase):
         cursor = get_connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = [{"count": 2}]
         llm = Mock()
-        llm.generate_sql.return_value = "SELECT COUNT(*) AS count FROM details"
+        llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM details")
         with patch.object(core, "database_schema", return_value="TABLE details: id int"):
-            sql, rows = core.ask_database("Combien ?", llm)
+            sql, rows = asyncio.run(core.ask_database("Combien ?", llm))
         self.assertEqual(sql, "SELECT COUNT(*) AS count FROM details")
         self.assertEqual(rows, [{"count": 2}])
-        llm.generate_sql.assert_called_once()
+        llm.generate_sql.assert_awaited_once_with("Combien ?", "TABLE details: id int")
 
     def test_health_check(self):
         self.assertTrue(core.health_check())

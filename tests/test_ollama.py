@@ -1,7 +1,8 @@
+import asyncio
 import base64
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from NaturSQL.ollama_client.llm import LLMClient
 from NaturSQL.ollama_client.ollama_wrapper_iut import (
@@ -70,13 +71,14 @@ class OllamaTests(unittest.TestCase):
             OllamaWrapper().start_server()
 
     def test_llm_adapter_builds_prompt_and_strips_response(self):
-        wrapper = Mock()
-        wrapper.generate_text.return_value = Mock(response="  SELECT 1;  ")
-        result = LLMClient(wrapper).generate_sql("Combien ?", "TABLE details")
+        client = Mock()
+        client.generate = AsyncMock(return_value="  SELECT 1;  ")
+        result = asyncio.run(LLMClient(client).generate_sql("Combien ?", "TABLE details"))
         self.assertEqual(result, "SELECT 1;")
-        call = wrapper.generate_text.call_args.kwargs
-        self.assertIn("Combien ?", call["prompt"])
-        self.assertEqual(call["options"], {"temperature": 0})
+        prompt = client.generate.call_args.args[0]
+        self.assertIn("Combien ?", prompt)
+        self.assertIn("TABLE details", prompt)
+        self.assertEqual(client.generate.call_args.kwargs["options"], {"temperature": 0})
 
 
 if __name__ == "__main__":

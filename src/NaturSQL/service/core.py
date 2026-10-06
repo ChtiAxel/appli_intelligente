@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
@@ -111,13 +112,8 @@ def validate_read_only_sql(sql: str) -> str:
     return cleaned
 
 
-def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list[dict[str, Any]]]:
-    """Translate a question to safe SQL and execute it against MariaDB using the read-only account."""
-    if not question or not question.strip():
-        raise ValueError("La question ne peut pas etre vide.")
-    client = llm or LLMClient()
-    sql = validate_read_only_sql(client.generate_sql(question.strip(), database_schema()))
-
+def execute_query(sql: str) -> list[dict[str, Any]]:
+    """Execute a validated query with the read-only account (synchronous, pymysql)."""
     conn_getter = get_readonly_connection
     if getattr(get_connection, "_mock_name", None) is not None or (
         hasattr(get_connection, "return_value") and hasattr(get_connection, "assert_called")
@@ -126,7 +122,7 @@ def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list
 
     try:
         with conn_getter() as connection:
-            rows = execute_readonly_query(
+            return execute_readonly_query(
                 sql,
                 connection=connection,
                 max_rows=config.DB_MAX_ROWS,
@@ -134,6 +130,25 @@ def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list
             )
     except Exception as exc:
         raise _classify_db_error(exc, config.DB_QUERY_TIMEOUT) from exc
+
+
+async def text_to_sql(question: str, llm: LLMClient) -> str:
+    """Inject the database schema and get a validated read-only query."""
+    schema = await asyncio.to_thread(database_schema)
+    return validate_read_only_sql(await llm.generate_sql(question, schema))
+
+
+async def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list[dict[str, Any]]]:
+    """Translate a question to safe SQL and execute it against MariaDB using the read-only account.
+
+    pymysql is blocking, so DB calls run in a worker thread to keep the
+    event loop (and the Gradio UI) responsive.
+    """
+    if not question or not question.strip():
+        raise ValueError("La question ne peut pas etre vide.")
+    client = llm or LLMClient()
+    sql = await text_to_sql(question.strip(), client)
+    rows = await asyncio.to_thread(execute_query, sql)
     return sql, rows
 
 

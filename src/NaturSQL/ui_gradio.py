@@ -1,6 +1,7 @@
 """Gradio application entry point."""
 
 from __future__ import annotations
+import asyncio
 import os
 import base64
 import gradio as gr
@@ -713,7 +714,7 @@ def build_app():
                 return gr.update(), history
             return "", history + [{"role": "user", "content": message}]
 
-        def bot_respond(user, history, current_cid, cid_map):
+        async def bot_respond(user, history, current_cid, cid_map):
             """Step 2: generate answer and save."""
             if not user or not history:
                 yield history, current_cid, gr.update(), cid_map
@@ -729,23 +730,23 @@ def build_app():
             
             if current_cid is None:
                 title = user_msg[:50] + ("..." if len(user_msg) > 50 else "")
-                conv = conv_storage.create_conversation(user.nom_util, title)
+                conv = await asyncio.to_thread(conv_storage.create_conversation, user.nom_util, title)
                 current_cid = conv.id
-                conv_storage.add_message(current_cid, "user", user_msg)
+                await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
             else:
-                conv_storage.add_message(current_cid, "user", user_msg)
+                await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
 
             try:
-                sql_str, results = ask_database(user_msg)
+                sql_str, results = await ask_database(user_msg)
                 bot_md = _format_bot_response(sql_str, results)
-                conv_storage.add_message(current_cid, "assistant", bot_md, sql_str)
+                await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md, sql_str)
             except Exception as e:
                 bot_md = f"**Erreur :** {str(e)}"
-                conv_storage.add_message(current_cid, "assistant", bot_md)
+                await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md)
 
             history.append({"role": "assistant", "content": bot_md})
 
-            conversations = conv_storage.list_conversations(user.nom_util)
+            conversations = await asyncio.to_thread(conv_storage.list_conversations, user.nom_util)
             choices, new_map = _build_conv_choices(conversations)
             
             selected_label = None

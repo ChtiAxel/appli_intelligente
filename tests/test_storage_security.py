@@ -13,7 +13,7 @@ Vérifie :
 from __future__ import annotations
 
 import socket
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pymysql
 import pytest
@@ -287,7 +287,7 @@ def test_execution_timeout_raises_query_timeout_error():
 # 6. Intégration avec ask_database
 # =====================================================================
 
-def test_ask_database_uses_readonly_connection_and_limits():
+async def test_ask_database_uses_readonly_connection_and_limits():
     """Vérifie que ask_database utilise bien la connexion lecture seule et applique les limites."""
     mock_conn = MagicMock()
     mock_conn.__enter__.return_value = mock_conn
@@ -295,11 +295,11 @@ def test_ask_database_uses_readonly_connection_and_limits():
     mock_cursor.fetchall.return_value = [{"count": 42}]
 
     llm = Mock()
-    llm.generate_sql.return_value = "SELECT COUNT(*) AS count FROM cours"
+    llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM cours")
 
     with patch.object(core, "database_schema", return_value="TABLE cours: id_cours varchar"):
         with patch("NaturSQL.service.core.get_readonly_connection", return_value=mock_conn):
-            sql, rows = core.ask_database("Combien de cours ?", llm=llm)
+            sql, rows = await core.ask_database("Combien de cours ?", llm=llm)
 
     assert sql == "SELECT COUNT(*) AS count FROM cours"
     assert rows == [{"count": 42}]
@@ -308,14 +308,14 @@ def test_ask_database_uses_readonly_connection_and_limits():
     assert "LIMIT 50" in executed_sql
 
 
-def test_ask_database_rejects_malicious_llm_output_cleanly():
+async def test_ask_database_rejects_malicious_llm_output_cleanly():
     """Vérifie que si l'IA tente de générer une commande malveillante, elle est interceptée."""
     llm = Mock()
-    llm.generate_sql.return_value = "DROP TABLE enseignants"
+    llm.generate_sql = AsyncMock(return_value="DROP TABLE enseignants")
 
     with patch.object(core, "database_schema", return_value="TABLE enseignants: id_ens varchar"):
         with pytest.raises(ValueError) as exc_info:
-            core.ask_database("Supprime les profs", llm=llm)
+            await core.ask_database("Supprime les profs", llm=llm)
     assert "SELECT ou WITH" in str(exc_info.value) or "opération SQL interdite" in str(exc_info.value)
 
 
