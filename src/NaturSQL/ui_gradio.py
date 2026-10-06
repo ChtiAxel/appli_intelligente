@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import os
 import base64
+import html
+import re
 import gradio as gr
 from .service.auth import AuthService
 from .storage.conversations import ConversationStorage
@@ -80,12 +82,115 @@ html, body {
     max-width: 450px;
 }
 .profile-card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-    margin: 3rem auto 0 auto;
-    max-width: 500px;
+    background: #ffffff !important;
+    padding: 2rem 2.25rem !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+    margin: 2rem auto !important;
+    max-width: 480px !important;
+    border: 1px solid #e5e7eb !important;
+}
+.profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 0.85rem;
+    width: 100%;
+}
+.profile-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #111827;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 auto 8px auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    letter-spacing: 1px;
+}
+.profile-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 3px 0;
+    line-height: 1.25;
+    text-align: center;
+}
+.profile-id {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    background: #f3f4f6;
+    padding: 2px 12px;
+    border-radius: 9999px;
+    margin: 2px 0 5px 0;
+    display: inline-block;
+    text-align: center;
+}
+.profile-role {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+    text-align: center;
+}
+.profile-accordion {
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    margin: 0.75rem 0 !important;
+    background: #fafafa !important;
+    padding: 0.5rem 0.75rem !important;
+}
+.profile-btn-row {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin-top: 1rem !important;
+}
+.profile-btn-row button {
+    flex: 1 1 0 !important;
+    max-width: 190px !important;
+}
+.profile-back-row {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin-top: 0.5rem !important;
+}
+.profile-back-row button {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #6b7280 !important;
+    text-decoration: underline !important;
+    font-size: 13px !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    min-width: 0 !important;
+}
+.profile-back-row button:hover {
+    color: #111827 !important;
+}
+.profile-edit-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    margin-top: 0.75rem !important;
+}
+.profile-edit-actions button {
+    flex: 1 1 0 !important;
+    max-width: 160px !important;
 }
 .doc-card {
     background: white;
@@ -302,6 +407,7 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     color: inherit !important;
     min-width: 0 !important;
     text-align: left !important;
+}
 .header-profile-row {
     display: flex !important;
     align-items: center !important;
@@ -335,6 +441,43 @@ def _status_html(message: str, ok: bool) -> str:
         return ""
     css_class = "status-msg ok" if ok else "status-msg error"
     return f'<div class="{css_class}">{message}</div>'
+
+def _profile_card_html(user) -> str:
+    if not user:
+        return (
+            '<div class="profile-header">'
+            '<div class="profile-role">Erreur de chargement</div>'
+            '</div>'
+        )
+    prenom = " ".join((getattr(user, "prenom", "") or "").split())
+    nom = " ".join((getattr(user, "nom", "") or "").split())
+    full_name = f"{prenom} {nom}".strip() or "Utilisateur"
+
+    if prenom and nom:
+        clean_prenom = re.sub(r"\s+", "-", prenom.lower())
+        clean_nom = re.sub(r"\s+", "-", nom.lower())
+        identifiant = f"{clean_prenom}.{clean_nom}"
+        initials = f"{prenom[0].upper()}{nom[0].upper()}"
+    else:
+        nom_util = getattr(user, "nom_util", "") or ""
+        identifiant = nom_util.strip(".") or full_name.lower().replace(" ", "-") or "utilisateur"
+        initials = full_name[0].upper() if full_name else "U"
+
+    escaped_full_name = html.escape(full_name)
+    escaped_id = html.escape(identifiant)
+    escaped_initials = html.escape(initials)
+
+    return (
+        '<div class="profile-header">\n'
+        f'    <div class="profile-avatar">{escaped_initials}</div>\n'
+        f'    <div class="profile-name">{escaped_full_name}</div>\n'
+        f'    <div class="profile-id">{escaped_id}</div>\n'
+        '    <div class="profile-role">Utilisateur Standard</div>\n'
+        '</div>'
+    )
+
+_profile_card_md = _profile_card_html
+
 
 def build_app():
     auth_service = AuthService()
@@ -392,20 +535,25 @@ def build_app():
 
             # --- Page de Profil ---
             with gr.Column(visible=False, elem_classes=["profile-card"]) as profile_page:
-                btn_back_to_conv = gr.Button("← Retour aux conversations", size="sm")
-                with gr.Row():
-                    profile_info = gr.Markdown("Chargement du profil...")
-                
+                profile_info = gr.HTML(
+                    value='<div class="profile-header"><div class="profile-role">Chargement du profil...</div></div>'
+                )
                 profile_status = gr.HTML()
-                
-                with gr.Row():
-                    edit_profile_button = gr.Button("Modifier le profil")
+
+                with gr.Accordion("Modifier mes informations", open=True, visible=False, elem_classes=["profile-accordion"]) as profile_edit_form:
+                    with gr.Row():
+                        edit_first_name = gr.Textbox(label="Prénom *", placeholder="Jean", lines=1, max_lines=1, scale=1)
+                        edit_last_name = gr.Textbox(label="Nom *", placeholder="Dupont", lines=1, max_lines=1, scale=1)
+                    with gr.Row(elem_classes=["profile-edit-actions"]):
+                        save_profile_button = gr.Button("Enregistrer", variant="primary", scale=1)
+                        cancel_profile_button = gr.Button("Annuler", variant="secondary", scale=1)
+
+                with gr.Row(elem_classes=["profile-btn-row"]):
+                    edit_profile_button = gr.Button("Modifier le profil", variant="primary")
                     disconnect_button = gr.Button("Déconnexion", variant="stop")
-                    save_profile_button = gr.Button("Enregistrer", visible=False, variant="primary")
-                
-                with gr.Column(visible=False) as profile_edit_form:
-                    edit_first_name = gr.Textbox(label="Prénom *", placeholder="Jean")
-                    edit_last_name = gr.Textbox(label="Nom *", placeholder="Dupont")
+
+                with gr.Row(elem_classes=["profile-back-row"]):
+                    btn_back_to_conv = gr.Button("← Retour aux conversations", size="sm")
 
             # --- Pages Légales ---
             with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_mentions_page:
@@ -512,10 +660,7 @@ def build_app():
         btn_back_doc.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_to_conv.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
-        def _profile_card_md(user) -> str:
-            if not user:
-                return "Erreur de chargement"
-            return f"**{user.full_name}**"
+        _profile_card_md = _profile_card_html
 
         def _build_conv_choices(conversations):
             choices = []
@@ -542,11 +687,11 @@ def build_app():
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, conv_map = _build_conv_choices(conversations)
             
-            header_user_name_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{user.full_name}</div>'
+            header_user_name_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{html.escape(user.full_name)}</div>'
             
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
-                gr.update(visible=True), "", _profile_card_md(user), _status_html(result.message, ok=True),
+                gr.update(visible=True), "", _profile_card_md(user), "",
                 gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True)
             )
 
@@ -601,7 +746,7 @@ def build_app():
         def do_disconnect():
             return (
                 None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "", "",
-                gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), "",
+                gr.update(visible=False, open=False), gr.update(visible=True), "",
                 gr.update(value=[]), gr.update(choices=[]), {}, None, "", gr.update(visible=False)
             )
 
@@ -609,45 +754,54 @@ def build_app():
             do_disconnect,
             outputs=[
                 session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
-                profile_edit_form, edit_profile_button, save_profile_button, profile_status,
+                profile_edit_form, edit_profile_button, profile_status,
                 chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container
             ]
         )
 
         def start_edit(user):
             if user is None:
-                return gr.update(), gr.update(), gr.update(visible=False), gr.update(visible=True)
-            return user.prenom, user.nom, gr.update(visible=True), gr.update(visible=False)
+                return gr.update(), gr.update(), gr.update(visible=False, open=False), gr.update(visible=True)
+            return user.prenom, user.nom, gr.update(visible=True, open=True), gr.update(visible=False)
 
         edit_profile_button.click(
             start_edit,
             inputs=session_user,
             outputs=[edit_first_name, edit_last_name, profile_edit_form, edit_profile_button]
-        ).then(lambda: gr.update(visible=True), outputs=save_profile_button)
+        )
+
+        def cancel_edit():
+            return gr.update(visible=False, open=False), gr.update(visible=True), ""
+
+        cancel_profile_button.click(
+            cancel_edit,
+            outputs=[profile_edit_form, edit_profile_button, profile_status]
+        )
 
         def do_save_profile(user, first_name, last_name):
             if user is None:
                 return (
                     user, _status_html("Session expirée, merci de vous reconnecter.", ok=False), "",
-                    gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+                    gr.update(visible=False, open=False), gr.update(visible=True), gr.update()
                 )
             result = auth_service.update_profile(user, first_name, last_name)
             if not result.ok:
                 return (
                     user, _status_html(result.message, ok=False), _profile_card_md(user),
-                    gr.update(visible=True), gr.update(visible=False), gr.update(visible=True)
+                    gr.update(visible=True, open=True), gr.update(visible=False), gr.update()
                 )
             updated_user = result.user
             gr.Info(result.message)
+            header_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{html.escape(updated_user.full_name)}</div>'
             return (
                 updated_user, _status_html(result.message, ok=True), _profile_card_md(updated_user),
-                gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+                gr.update(visible=False, open=False), gr.update(visible=True), header_str
             )
 
         save_profile_button.click(
             do_save_profile,
             inputs=[session_user, edit_first_name, edit_last_name],
-            outputs=[session_user, profile_status, profile_info, profile_edit_form, edit_profile_button, save_profile_button]
+            outputs=[session_user, profile_status, profile_info, profile_edit_form, edit_profile_button, header_user_name]
         )
         # -------------------- Conversation: Core Chat Logic -------------------
 
