@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/mockup/logo.png" alt="NaturSQL Logo" width="150" />
+  <img src="docs/assets/logo.png" alt="NaturSQL Logo" width="150" />
   <h1>NaturSQL</h1>
   <p><em>L'Intelligence Artificielle au service de votre Base de Données</em></p>
 </div>
@@ -75,4 +75,4 @@ Ce projet est réalisé dans le cadre de la SAE "Application Intelligente".
 
 ## ⏳ Développement en cours
 
-### V1
+ - **V1**
