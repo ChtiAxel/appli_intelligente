@@ -24,7 +24,7 @@ def load_markdown(filename: str) -> str:
     return f"Fichier {filename} introuvable."
 
 # Load logo as base64 for embedding in HTML
-logo_path = os.path.join(os.path.dirname(__file__), "docs", "mockup", "logo.png")
+logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "assets", "logo.png")
 try:
     with open(logo_path, "rb") as f:
         b64_logo = base64.b64encode(f.read()).decode("utf-8")
