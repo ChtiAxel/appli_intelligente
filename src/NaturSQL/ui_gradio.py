@@ -132,6 +132,11 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
 .status-msg.ok { color: #2e8b57 !important; font-weight: 600; }
 .hidden-btn { display: none !important; }
 
+/* --- Cacher la boîte de chargement Processing --- */
+.progress-text { display: none !important; }
+.toast-wrap { display: none !important; }
+div[class*="progress-text"] { display: none !important; }
+
 /* --- Conversation Page CSS --- */
 #conv-page {
     display: flex;
@@ -302,6 +307,7 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
     color: inherit !important;
     min-width: 0 !important;
     text-align: left !important;
+}
 .header-profile-row {
     display: flex !important;
     align-items: center !important;
@@ -736,6 +742,7 @@ def build_app():
             else:
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
 
+            # --- Appel réel à l'IA et à la BDD ---
             try:
                 sql_str, results = await ask_database(user_msg)
                 bot_md = _format_bot_response(sql_str, results)
@@ -761,20 +768,24 @@ def build_app():
         chat_input.submit(
             add_user_msg,
             inputs=[chat_input, chatbot],
-            outputs=[chat_input, chatbot]
+            outputs=[chat_input, chatbot],
+            show_progress="hidden"
         ).then(
             bot_respond,
             inputs=[session_user, chatbot, current_conv_id, conv_id_map],
-            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map]
+            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map],
+            show_progress="minimal"
         )
         send_btn.click(
             add_user_msg,
             inputs=[chat_input, chatbot],
-            outputs=[chat_input, chatbot]
+            outputs=[chat_input, chatbot],
+            show_progress="hidden"
         ).then(
             bot_respond,
             inputs=[session_user, chatbot, current_conv_id, conv_id_map],
-            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map]
+            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map],
+            show_progress="minimal"
         )
 
         def do_new_conversation(user):
