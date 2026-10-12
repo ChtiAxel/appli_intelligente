@@ -10065,6 +10065,9 @@ CREATE TABLE `compte` (
   `prenom` varchar(100) NOT NULL,
   `nom` varchar(100) NOT NULL,
   `mdp` varchar(255) NOT NULL,
+  `role` enum('PROF','SECRETAIRE','ADMIN') NOT NULL DEFAULT 'PROF',
+  `avatar` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`prenom`, `nom`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
