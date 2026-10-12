@@ -108,6 +108,61 @@ class UiAndLoggingTests(unittest.TestCase):
         for tb in edit_textboxes:
             self.assertEqual(tb.lines, 1)
 
+    def test_v2_home_helpers(self):
+        from NaturSQL.ui_gradio import (
+            _welcome_banner_html,
+            _status_badges_html,
+            create_results_csv,
+            get_conv_period,
+            _format_bot_response,
+        )
+        from NaturSQL.storage.users import User
+        from datetime import datetime, timedelta
+
+        # Welcome banner test (must contain greeting and no emojis)
+        user = User(prenom="Alice", nom="Martin", mdp="hash")
+        welcome = _welcome_banner_html(user)
+        self.assertIn("Bonjour Alice, que souhaitez-vous analyser", welcome)
+        self.assertIn("Conseils de formulation", welcome)
+        # Ensure no emojis in welcome
+        self.assertNotIn("🟢", welcome)
+        self.assertNotIn("💡", welcome)
+
+        # Status badges test (must contain MariaDB and Ollama without emojis)
+        with patch("NaturSQL.ui_gradio.get_system_status", return_value={"mariadb": True, "ollama": False}):
+            badges = _status_badges_html()
+            self.assertIn("Base de donnees (MariaDB) : En ligne", badges)
+            self.assertIn("Serveur IA (Ollama) : Indisponible", badges)
+            self.assertIn("status-dot-online", badges)
+            self.assertIn("status-dot-offline", badges)
+            self.assertNotIn("🟢", badges)
+
+        # CSV export test
+        results = [{"nom_ens": "Dupont", "total_h": 42}]
+        csv_path = create_results_csv(results)
+        self.assertIsNotNone(csv_path)
+        with open(csv_path, "r", encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn("nom_ens;total_h", content)
+        self.assertIn("Dupont;42", content)
+        self.assertIsNone(create_results_csv([]))
+
+        # Period classification test
+        now = datetime.now()
+        self.assertEqual(get_conv_period(now), "Aujourd'hui")
+        self.assertEqual(get_conv_period(now - timedelta(days=2)), "7 derniers jours")
+        self.assertEqual(get_conv_period(now - timedelta(days=15)), "Plus ancien")
+
+        # Simplified vs Expert mode response formatting
+        sql = "SELECT * FROM test"
+        resp_expert = _format_bot_response(sql, results, simplified=False)
+        self.assertIn("```sql", resp_expert)
+        self.assertIn("Dupont", resp_expert)
+
+        resp_simplified = _format_bot_response(sql, results, simplified=True)
+        self.assertNotIn("```sql", resp_simplified)
+        self.assertIn("Dupont", resp_simplified)
+
 
 if __name__ == "__main__":
     unittest.main()

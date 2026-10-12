@@ -6,10 +6,14 @@ import os
 import base64
 import html
 import re
+import csv
+import tempfile
+from datetime import datetime
 import gradio as gr
 from .service.auth import AuthService
 from .storage.conversations import ConversationStorage
 from .service.core import ask_database
+from .service.monitoring import get_system_status
 
 def load_markdown(filename: str) -> str:
     candidates = [
@@ -327,14 +331,6 @@ div[class*="progress-text"] { display: none !important; }
 .new-chat-btn:hover {
     color: #000000 !important;
 }
-.search-bar {
-    margin-bottom: 16px;
-}
-.search-bar input {
-    border-radius: 20px !important;
-    background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-}
 .chat-list-title {
     font-size: 12px;
     color: #6b7280;
@@ -389,21 +385,6 @@ div[class*="progress-text"] { display: none !important; }
     font-size: 13px !important;
     color: #374151 !important;
 }
-.user-info-sidebar {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-}
-.user-info-sidebar img {
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-}
 .profile-link-btn {
     background: none !important;
     border: none !important;
@@ -420,6 +401,176 @@ div[class*="progress-text"] { display: none !important; }
     gap: 8px !important;
     margin: 0 !important;
     padding: 0 !important;
+}
+.system-status-container {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    font-size: 12px !important;
+    color: #4b5563 !important;
+    padding: 6px 14px !important;
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 6px !important;
+    width: fit-content !important;
+    margin: 0 2rem 0 auto !important;
+}
+.status-indicator {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+}
+.status-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+}
+.status-dot-online {
+    background-color: #10b981 !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+}
+.status-dot-offline {
+    background-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+.welcome-box {
+    text-align: center !important;
+    max-width: 680px !important;
+    margin: 16px auto !important;
+    padding: 24px !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+.welcome-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
+    margin: 0 0 8px 0 !important;
+}
+.welcome-subtitle {
+    font-size: 14px !important;
+    color: #6b7280 !important;
+    margin: 0 0 16px 0 !important;
+}
+.tips-accordion {
+    text-align: left !important;
+    margin-top: 14px !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    background: #f9fafb !important;
+    overflow: hidden !important;
+}
+.tips-summary {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    padding: 10px 14px !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    outline: none !important;
+}
+.tips-summary:hover {
+    background: #f3f4f6 !important;
+}
+.tips-content {
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    color: #4b5563 !important;
+    line-height: 1.6 !important;
+    border-top: 1px solid #e5e7eb !important;
+    background: #ffffff !important;
+}
+.tips-content ul {
+    margin: 0 !important;
+    padding-left: 20px !important;
+}
+.tips-content li {
+    margin-bottom: 6px !important;
+}
+.chat-toolbar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+}
+.view-mode-toggle .wrap {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 6px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.view-mode-toggle label {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    border: 1px solid #e5e7eb !important;
+    background: #ffffff !important;
+    cursor: pointer !important;
+}
+.view-mode-toggle label.selected {
+    background: #374151 !important;
+    color: #ffffff !important;
+    font-weight: 500 !important;
+}
+.csv-download-btn {
+    font-size: 12px !important;
+    padding: 4px 12px !important;
+    background: #111827 !important;
+    color: #ffffff !important;
+    border-radius: 6px !important;
+    border: none !important;
+}
+.active-conv-actions {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    margin-top: 10px !important;
+    margin-bottom: 8px !important;
+}
+.action-box-title {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #6b7280 !important;
+    margin-bottom: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+.delete-btn-hover {
+    color: #b91c1c !important;
+    background: #fef2f2 !important;
+    border: 1px solid #fecaca !important;
+    transition: all 0.2s ease-in-out !important;
+}
+.delete-btn-hover:hover {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+}
+.clear-all-convs-btn {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+    margin-top: 8px !important;
+    color: #6b7280 !important;
+    background: transparent !important;
+    border: 1px dashed #d1d5db !important;
+    width: 100% !important;
+    cursor: pointer !important;
+}
+.clear-all-convs-btn:hover {
+    color: #dc2626 !important;
+    border-color: #dc2626 !important;
+    background: #fef2f2 !important;
 }
 """
 
@@ -484,6 +635,143 @@ def _profile_card_html(user) -> str:
 _profile_card_md = _profile_card_html
 
 
+def create_results_csv(results: list[dict]) -> str | None:
+    """Generate a temporary CSV file formatted for Excel."""
+    if not results:
+        return None
+    tmp = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".csv", prefix="natursql_export_", mode="w", encoding="utf-8-sig", newline=""
+    )
+    headers = list(results[0].keys())
+    writer = csv.DictWriter(tmp, fieldnames=headers, delimiter=";")
+    writer.writeheader()
+    for row in results:
+        writer.writerow(row)
+    tmp.close()
+    return tmp.name
+
+
+def _status_badges_html() -> str:
+    """Return HTML status indicators for MariaDB and Ollama without emoji."""
+    status = get_system_status()
+    db_ok = status.get("mariadb", False)
+    ollama_ok = status.get("ollama", False)
+
+    db_class = "status-dot-online" if db_ok else "status-dot-offline"
+    db_text = "En ligne" if db_ok else "Hors ligne"
+
+    ollama_class = "status-dot-online" if ollama_ok else "status-dot-offline"
+    ollama_text = "Pret" if ollama_ok else "Indisponible"
+
+    return (
+        '<div class="system-status-container">\n'
+        '    <div class="status-indicator">\n'
+        f'        <span class="status-dot {db_class}"></span>\n'
+        f'        <span>Base de donnees (MariaDB) : {db_text}</span>\n'
+        '    </div>\n'
+        '    <div class="status-indicator">\n'
+        f'        <span class="status-dot {ollama_class}"></span>\n'
+        f'        <span>Serveur IA (Ollama) : {ollama_text}</span>\n'
+        '    </div>\n'
+        '</div>'
+    )
+
+
+def _welcome_banner_html(user=None) -> str:
+    """Return welcome box with tips accordion without emoji."""
+    prenom = getattr(user, "prenom", "") if user else ""
+    prenom_str = html.escape(prenom.strip()) if prenom else "Utilisateur"
+    return (
+        '<div class="welcome-box">\n'
+        f'    <h2 class="welcome-title">Bonjour {prenom_str}, que souhaitez-vous analyser aujourd\'hui ?</h2>\n'
+        '    <p class="welcome-subtitle">Posez vos questions sur les maquettes pedagogiques, les volumes horaires et les plannings en langage naturel.</p>\n'
+        '    <details class="tips-accordion">\n'
+        '        <summary class="tips-summary">Conseils de formulation</summary>\n'
+        '        <div class="tips-content">\n'
+        '            <ul>\n'
+        '                <li><strong>Precisez les intitules :</strong> Indiquez le nom complet du cours ou de la matiere (ex. Qualite de developpement).</li>\n'
+        '                <li><strong>Specifiez le type de seance :</strong> Ciblez les cours magistraux (CM), travaux diriges (TD) ou travaux pratiques (TP).</li>\n'
+        '                <li><strong>Evitez les abreviations :</strong> Formulez clairement votre demande pour optimiser la generation de la requete SQL.</li>\n'
+        '                <li><strong>Exemples de questions types :</strong>\n'
+        '                    <ul>\n'
+        '                        <li>Quels enseignants donnent des TP dans le cours Qualite de developpement ?</li>\n'
+        '                        <li>Quel est le volume d\'heures de cours magistraux dispense par enseignant ?</li>\n'
+        '                        <li>Quelles sont les matieres dispensees au semestre 1 ?</li>\n'
+        '                        <li>Donne-moi la liste des enseignants vacataires.</li>\n'
+        '                    </ul>\n'
+        '                </li>\n'
+        '            </ul>\n'
+        '        </div>\n'
+        '    </details>\n'
+        '</div>'
+    )
+
+
+def get_conv_period(dt: datetime) -> str:
+    """Classify conversation creation date into period categories."""
+    diff = (datetime.now().date() - dt.date()).days
+    if diff == 0:
+        return "Aujourd'hui"
+    elif diff <= 7:
+        return "7 derniers jours"
+    return "Plus ancien"
+
+
+def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False) -> str:
+    """Format query and SQL results into Markdown."""
+    if not sql and not results:
+        return "Desole, je n'ai pas pu comprendre la demande ou aucune donnee n'a ete trouvee."
+    
+    md_parts = []
+    if sql and not simplified:
+        lines = sql.strip().split("\n")
+        code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
+        md_parts.append(f"```sql\n{chr(10).join(code_lines)}\n```")
+    
+    if results:
+        headers = list(results[0].keys())
+        active_headers = []
+        for h in headers:
+            if any(row.get(h) is not None and str(row.get(h)).strip() != "" for row in results):
+                active_headers.append(h)
+        
+        if not active_headers:
+            active_headers = headers
+            
+        display_headers = [h.replace("_", " ").title() for h in active_headers]
+        
+        if len(active_headers) == 1:
+            md_parts.append(f"**{display_headers[0]} :**\n")
+            for i, row in enumerate(results):
+                if i >= 50:
+                    md_parts.append(f"\n*... {len(results)-50} resultats supplementaires masques ...*")
+                    break
+                val = row.get(active_headers[0])
+                val_str = str(val) if val is not None and str(val).strip() != "" else "-"
+                md_parts.append(f"- {val_str}")
+        else:
+            table_lines = []
+            table_lines.append("| " + " | ".join(display_headers) + " |")
+            table_lines.append("|" + "|".join(["---"] * len(active_headers)) + "|")
+            for i, row in enumerate(results):
+                if i >= 50:
+                    table_lines.append(f"*... {len(results)-50} resultats supplementaires masques ...*")
+                    break
+                r_str = []
+                for h in active_headers:
+                    val = row.get(h)
+                    if val is None or str(val).strip() == "" or str(val) == "None":
+                        r_str.append("-")
+                    else:
+                        r_str.append(str(val).replace("|", "\\|"))
+                table_lines.append("| " + " | ".join(r_str) + " |")
+            md_parts.append("\n".join(table_lines))
+    else:
+        md_parts.append("\n*Aucun resultat trouve.*")
+        
+    return "\n\n".join(md_parts)
+
+
 def build_app():
     auth_service = AuthService()
     conv_storage = ConversationStorage()
@@ -500,7 +788,7 @@ def build_app():
                 gr.HTML(logo_html, scale=1)
                 with gr.Row(elem_classes=["header-profile-row"], visible=False) as header_profile_container:
                     header_user_name = gr.HTML(elem_classes=["header-user-html"])
-                    go_to_profile_btn = gr.Button("👤 Mon Profil", variant="secondary", size="sm")
+                    go_to_profile_btn = gr.Button("Mon Profil", variant="secondary", size="sm")
 
         # Contenu principal
         with gr.Column(elem_classes=["main-content"]):
@@ -573,22 +861,50 @@ def build_app():
                 gr.Markdown(load_markdown("conditions-generales-utilisation.md"))
                 btn_back_3 = gr.Button("Retour")
 
-            # --- Page de Conversation ---
             with gr.Column(visible=False, elem_id="conv-page") as conversation_page:
                 with gr.Column(elem_id="conv-sidebar"):
                     with gr.Row(elem_classes=["sidebar-header"]):
-                        gr.HTML("<div style='flex-grow: 1; margin: 0; padding: 0;'>≡ NaturSQL</div>", scale=1)
+                        gr.HTML("<div style='flex-grow: 1; margin: 0; padding: 0;'>NaturSQL</div>", scale=1)
                         new_chat_btn = gr.Button("+", elem_classes=["new-chat-btn"], scale=0, min_width=30)
-                    
-                    search_bar = gr.Textbox(placeholder="Search", show_label=False, container=False, elem_classes=["search-bar"])
-                    gr.HTML('<div class="chat-list-title">Chats</div>')
+
+                    gr.HTML('<div class="chat-list-title">Discussions</div>')
                     
                     conv_radio = gr.Radio(choices=[], show_label=False, container=False, elem_classes=["chat-list"])
-                    
-                    with gr.Row(elem_classes=["user-info-sidebar"]):
-                        gr.HTML("<div></div>")
+
+                    with gr.Column(elem_classes=["active-conv-actions"], visible=False) as active_conv_box:
+                        gr.HTML('<div class="action-box-title">Gestion de la discussion</div>')
+                        rename_title_input = gr.Textbox(placeholder="Nouveau titre...", show_label=False, container=False, lines=1)
+                        with gr.Row():
+                            btn_rename_confirm = gr.Button("Renommer", size="sm", variant="secondary", scale=1)
+                            btn_delete_confirm = gr.Button("Supprimer", size="sm", variant="stop", elem_classes=["delete-btn-hover"], scale=1)
+
+                    btn_clear_all_convs = gr.Button(
+                        "Vider toutes les conversations",
+                        size="sm",
+                        variant="secondary",
+                        elem_classes=["clear-all-convs-btn"],
+                    )
 
                 with gr.Column(elem_id="conv-main"):
+                    welcome_box = gr.HTML(_welcome_banner_html(), elem_classes=["welcome-container"], visible=True)
+
+                    with gr.Row(elem_classes=["chat-toolbar"]):
+                        with gr.Row(elem_classes=["chat-toolbar-left"]):
+                            view_mode = gr.Radio(
+                                choices=["Mode Simplifie", "Mode Expert"],
+                                value="Mode Expert",
+                                label="",
+                                container=False,
+                                elem_classes=["view-mode-toggle"],
+                            )
+                        with gr.Row(elem_classes=["chat-toolbar-right"]):
+                            csv_download_btn = gr.DownloadButton(
+                                "Telecharger en CSV",
+                                size="sm",
+                                visible=False,
+                                elem_classes=["csv-download-btn"],
+                            )
+
                     chatbot = gr.Chatbot(
                         elem_id="conv-chat",
                         show_label=False,
@@ -597,7 +913,7 @@ def build_app():
                     )
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
-                            placeholder="What would you like to know?",
+                            placeholder="Posez votre question sur les enseignements...",
                             show_label=False,
                             container=False,
                             scale=9
@@ -613,23 +929,25 @@ def build_app():
         with gr.Column(elem_classes=["footer"]):
             footer_logo = f'<a href="#" style="text-decoration: none;" onclick="document.getElementById(\'btn-go-home\').click(); return false;"><img src="data:image/png;base64,{b64_logo}" style="height: 48px; margin-right: 4rem;" /></a>' if b64_logo else ""
                 
-            gr.HTML(f"""
-            <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
-                <div>
-                    {footer_logo}
+            with gr.Row():
+                gr.HTML(f"""
+                <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
+                    <div>
+                        {footer_logo}
+                    </div>
+                    <div style='line-height: 1.8; color: #1f2937;'>
+                        <strong>Aide</strong><br>
+                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
+                    </div>
+                    <div style='line-height: 1.8; color: #1f2937;'>
+                        <strong>Legal</strong><br>
+                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions legales</a><br>
+                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialite</a><br>
+                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions generales d'utilisation</a>
+                    </div>
                 </div>
-                <div style='line-height: 1.8; color: #1f2937;'>
-                    <strong>Aide</strong><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
-                </div>
-                <div style='line-height: 1.8; color: #1f2937;'>
-                    <strong>Légal</strong><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a>
-                </div>
-            </div>
-            """)
+                """, scale=3)
+                system_status_box = gr.HTML(_status_badges_html(), scale=1)
             
             # Boutons invisibles pour déclencher l'affichage des pages depuis le footer HTML
             btn_go_home = gr.Button(elem_id="btn-go-home", elem_classes=["hidden-btn"])
@@ -675,7 +993,7 @@ def build_app():
             for c in conversations:
                 label = c.title
                 if label in conv_map:
-                    label = f"{c.title} #{c.id}"
+                    label = f"{label} #{c.id}"
                 choices.append(label)
                 conv_map[label] = c.id
             return choices, conv_map
@@ -686,7 +1004,8 @@ def build_app():
                 return (
                     gr.update(), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
                     gr.update(visible=False), _status_html(result.message, ok=False), "", "",
-                    [], gr.update(choices=[]), {}, None, "", gr.update(visible=False)
+                    [], gr.update(choices=[]), {}, None, "", gr.update(visible=False),
+                    gr.update(), gr.update(), gr.update(visible=False), "", gr.update(visible=False, value=None)
                 )
             user = result.user
             gr.Info(result.message)
@@ -695,11 +1014,14 @@ def build_app():
             choices, conv_map = _build_conv_choices(conversations)
             
             header_user_name_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{html.escape(user.full_name)}</div>'
+            welcome_html = _welcome_banner_html(user)
+            status_html = _status_badges_html()
             
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                 gr.update(visible=True), "", _profile_card_md(user), "",
-                gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True)
+                gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True),
+                gr.update(value=welcome_html, visible=True), gr.update(value=status_html), gr.update(visible=False), "", gr.update(visible=False, value=None)
             )
 
         signin_button.click(
@@ -708,7 +1030,8 @@ def build_app():
             outputs=[
                 session_user, signin_page, signup_page, profile_page, conversation_page,
                 signin_status, profile_info, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container,
+                welcome_box, system_status_box, active_conv_box, rename_title_input, csv_download_btn
             ]
         )
 
@@ -754,7 +1077,8 @@ def build_app():
             return (
                 None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "", "",
                 gr.update(visible=False, open=False), gr.update(visible=True), "",
-                gr.update(value=[]), gr.update(choices=[]), {}, None, "", gr.update(visible=False)
+                gr.update(value=[]), gr.update(choices=[]), {}, None, "", gr.update(visible=False),
+                gr.update(visible=False), gr.update(value=_status_badges_html()), gr.update(visible=False), "", gr.update(visible=False, value=None)
             )
 
         disconnect_button.click(
@@ -762,7 +1086,8 @@ def build_app():
             outputs=[
                 session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, profile_status,
-                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container
+                chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container,
+                welcome_box, system_status_box, active_conv_box, rename_title_input, csv_download_btn
             ]
         )
 
@@ -812,73 +1137,16 @@ def build_app():
         )
         # -------------------- Conversation: Core Chat Logic -------------------
 
-        def _format_bot_response(sql: str | None, results: list[dict] | None) -> str:
-            if not sql and not results:
-                return "Désolé, je n'ai pas pu comprendre la demande ou aucune donnée n'a été trouvée."
-            
-            md_parts = []
-            if sql:
-                lines = sql.strip().split("\n")
-                code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
-                md_parts.append(f"```sql\n{chr(10).join(code_lines)}\n```")
-            
-            if results:
-                headers = list(results[0].keys())
-                
-                # Filtrer les colonnes completement vides
-                active_headers = []
-                for h in headers:
-                    if any(row.get(h) is not None and str(row.get(h)).strip() != "" for row in results):
-                        active_headers.append(h)
-                
-                if not active_headers:
-                    active_headers = headers
-                    
-                display_headers = [h.replace("_", " ").title() for h in active_headers]
-                
-                if len(active_headers) == 1:
-                    # Affichage en liste à puces si une seule colonne
-                    md_parts.append(f"**{display_headers[0]} :**\n")
-                    for i, row in enumerate(results):
-                        if i >= 50:
-                            md_parts.append(f"\n*... {len(results)-50} résultats supplémentaires masqués ...*")
-                            break
-                        val = row.get(active_headers[0])
-                        val_str = str(val) if val is not None and str(val).strip() != "" else "-"
-                        md_parts.append(f"- {val_str}")
-                else:
-                    # Affichage en tableau Markdown (doit être joint par des sauts de ligne simples)
-                    table_lines = []
-                    table_lines.append("| " + " | ".join(display_headers) + " |")
-                    table_lines.append("|" + "|".join(["---"] * len(active_headers)) + "|")
-                    for i, row in enumerate(results):
-                        if i >= 50:
-                            table_lines.append(f"*... {len(results)-50} résultats supplémentaires masqués ...*")
-                            break
-                        r_str = []
-                        for h in active_headers:
-                            val = row.get(h)
-                            if val is None or str(val).strip() == "" or str(val) == "None":
-                                r_str.append("-")
-                            else:
-                                r_str.append(str(val).replace("|", "\\|")) # Echapement des pipes
-                        table_lines.append("| " + " | ".join(r_str) + " |")
-                    md_parts.append("\n".join(table_lines))
-            else:
-                md_parts.append("\n*Aucun résultat trouvé.*")
-                
-            return "\n\n".join(md_parts)
-
         def add_user_msg(message, history):
-            """Step 1: show user message immediately."""
+            """Step 1: show user message immediately and hide welcome banner."""
             if not message:
-                return gr.update(), history
-            return "", history + [{"role": "user", "content": message}]
+                return gr.update(), history, gr.update()
+            return "", history + [{"role": "user", "content": message}], gr.update(visible=False)
 
-        async def bot_respond(user, history, current_cid, cid_map):
-            """Step 2: generate answer and save."""
+        async def bot_respond(user, history, current_cid, cid_map, mode):
+            """Step 2: generate answer, update CSV export and conversation list."""
             if not user or not history:
-                yield history, current_cid, gr.update(), cid_map
+                yield history, current_cid, gr.update(), cid_map, gr.update(), gr.update(), gr.update()
                 return
 
             raw_msg = history[-1]["content"]
@@ -889,19 +1157,29 @@ def build_app():
             else:
                 user_msg = str(raw_msg)
             
-            if current_cid is None:
+            is_new = (current_cid is None)
+            current_title = ""
+            if is_new:
                 title = user_msg[:50] + ("..." if len(user_msg) > 50 else "")
                 conv = await asyncio.to_thread(conv_storage.create_conversation, user.nom_util, title)
                 current_cid = conv.id
+                current_title = conv.title
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
             else:
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "user", user_msg)
+                for lbl, cid in cid_map.items():
+                    if cid == current_cid:
+                        current_title = lbl.rsplit(" #", 1)[0] if " #" in lbl else lbl
+                        break
 
-            # --- Appel réel à l'IA et à la BDD ---
+            csv_file = None
+            simplified = (mode == "Mode Simplifie")
             try:
                 sql_str, results = await ask_database(user_msg)
-                bot_md = _format_bot_response(sql_str, results)
+                bot_md = _format_bot_response(sql_str, results, simplified=simplified)
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md, sql_str)
+                if results:
+                    csv_file = create_results_csv(results)
             except Exception as e:
                 bot_md = f"**Erreur :** {str(e)}"
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md)
@@ -917,73 +1195,191 @@ def build_app():
                     selected_label = lbl
                     break
 
-            yield history, current_cid, gr.update(choices=choices, value=selected_label), new_map
+            csv_btn_update = gr.update(value=csv_file, visible=True) if csv_file else gr.update(value=None, visible=False)
+            active_box_update = gr.update(visible=True)
+            rename_input_update = gr.update(value=current_title)
+
+            yield (
+                history,
+                current_cid,
+                gr.update(choices=choices, value=selected_label),
+                new_map,
+                csv_btn_update,
+                active_box_update,
+                rename_input_update,
+            )
 
         # Wire up chat submit
         chat_input.submit(
             add_user_msg,
             inputs=[chat_input, chatbot],
-            outputs=[chat_input, chatbot],
+            outputs=[chat_input, chatbot, welcome_box],
             show_progress="hidden"
         ).then(
             bot_respond,
-            inputs=[session_user, chatbot, current_conv_id, conv_id_map],
-            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map],
+            inputs=[session_user, chatbot, current_conv_id, conv_id_map, view_mode],
+            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map, csv_download_btn, active_conv_box, rename_title_input],
             show_progress="minimal"
         )
         send_btn.click(
             add_user_msg,
             inputs=[chat_input, chatbot],
-            outputs=[chat_input, chatbot],
+            outputs=[chat_input, chatbot, welcome_box],
             show_progress="hidden"
         ).then(
             bot_respond,
-            inputs=[session_user, chatbot, current_conv_id, conv_id_map],
-            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map],
+            inputs=[session_user, chatbot, current_conv_id, conv_id_map, view_mode],
+            outputs=[chatbot, current_conv_id, conv_radio, conv_id_map, csv_download_btn, active_conv_box, rename_title_input],
             show_progress="minimal"
         )
 
         def do_new_conversation(user):
             if not user:
-                return [], None, gr.update()
+                return [], None, gr.update(), gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, _ = _build_conv_choices(conversations)
-            return [], None, gr.update(choices=choices, value=None)
+            return (
+                [],
+                None,
+                gr.update(choices=choices, value=None),
+                gr.update(value=_welcome_banner_html(user), visible=True),
+                gr.update(visible=False),
+                "",
+                gr.update(visible=False, value=None),
+            )
 
         new_chat_btn.click(
             do_new_conversation,
             inputs=[session_user],
-            outputs=[chatbot, current_conv_id, conv_radio]
+            outputs=[chatbot, current_conv_id, conv_radio, welcome_box, active_conv_box, rename_title_input, csv_download_btn]
         )
 
-        def do_load_conversation(label, cmap):
+        def do_select_conversation(evt: gr.SelectData, cmap, mode):
+            label = evt.value
             if not label or label not in cmap:
-                return [], None
+                return [], None, gr.update(), gr.update(visible=False), "", gr.update(visible=False, value=None)
             cid = cmap[label]
             messages = conv_storage.get_messages(cid)
-            history = [{"role": m.role, "content": m.content} for m in messages]
-            return history, cid
+            simplified = (mode == "Mode Simplifie")
+            history = []
+            for m in messages:
+                content = m.content
+                if m.role == "assistant" and m.sql_generated:
+                    if simplified and "```sql" in content:
+                        parts = content.split("```\n\n", 1)
+                        content = parts[1] if len(parts) > 1 else content
+                    elif not simplified and "```sql" not in content:
+                        lines = m.sql_generated.strip().split("\n")
+                        code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
+                        content = f"```sql\n{chr(10).join(code_lines)}\n```\n\n" + content
+                history.append({"role": m.role, "content": content})
+            
+            clean_title = label.rsplit(" #", 1)[0] if " #" in label else label
 
-        conv_radio.change(
-            do_load_conversation,
-            inputs=[conv_radio, conv_id_map],
-            outputs=[chatbot, current_conv_id]
+            welcome_update = gr.update(visible=False) if history else gr.update(visible=True)
+            active_box_update = gr.update(visible=True)
+            rename_update = gr.update(value=clean_title)
+            csv_update = gr.update(visible=False, value=None)
+
+            return history, cid, welcome_update, active_box_update, rename_update, csv_update
+
+        conv_radio.select(
+            do_select_conversation,
+            inputs=[conv_id_map, view_mode],
+            outputs=[chatbot, current_conv_id, welcome_box, active_conv_box, rename_title_input, csv_download_btn]
         )
 
-        def do_search_conversations(query, user, cmap):
-            if not user:
+        def do_toggle_view_mode(mode, cid):
+            if not cid:
                 return gr.update()
-            conversations = conv_storage.list_conversations(user.nom_util)
-            choices, _ = _build_conv_choices(conversations)
-            if query:
-                q = query.lower()
-                choices = [c for c in choices if q in c.lower()]
-            return gr.update(choices=choices)
+            messages = conv_storage.get_messages(cid)
+            simplified = (mode == "Mode Simplifie")
+            history = []
+            for m in messages:
+                content = m.content
+                if m.role == "assistant" and m.sql_generated:
+                    if simplified and "```sql" in content:
+                        parts = content.split("```\n\n", 1)
+                        content = parts[1] if len(parts) > 1 else content
+                    elif not simplified and "```sql" not in content:
+                        lines = m.sql_generated.strip().split("\n")
+                        code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
+                        content = f"```sql\n{chr(10).join(code_lines)}\n```\n\n" + content
+                history.append({"role": m.role, "content": content})
+            return history
 
-        search_bar.change(
-            do_search_conversations,
-            inputs=[search_bar, session_user, conv_id_map],
-            outputs=[conv_radio]
+        view_mode.change(
+            do_toggle_view_mode,
+            inputs=[view_mode, current_conv_id],
+            outputs=[chatbot],
+        )
+
+        def do_rename_conversation(cid, new_title, user):
+            if not cid or not new_title or not new_title.strip():
+                return gr.update(), gr.update()
+            ok = conv_storage.rename_conversation(cid, new_title.strip())
+            if not ok:
+                return gr.update(), gr.update()
+            gr.Info("Discussion renommee avec succes.")
+            conversations = conv_storage.list_conversations(user.nom_util)
+            choices, new_map = _build_conv_choices(conversations)
+            selected_label = None
+            for lbl, c_id in new_map.items():
+                if c_id == cid:
+                    selected_label = lbl
+                    break
+            return gr.update(choices=choices, value=selected_label), new_map
+
+        btn_rename_confirm.click(
+            do_rename_conversation,
+            inputs=[current_conv_id, rename_title_input, session_user],
+            outputs=[conv_radio, conv_id_map],
+        )
+
+        def do_delete_conversation(cid, user):
+            if not cid or not user:
+                return gr.update(), gr.update(), [], None, gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
+            conv_storage.delete_conversation(cid)
+            gr.Info("Discussion supprimee.")
+            conversations = conv_storage.list_conversations(user.nom_util)
+            choices, new_map = _build_conv_choices(conversations)
+            return (
+                gr.update(choices=choices, value=None),
+                new_map,
+                [],
+                None,
+                gr.update(value=_welcome_banner_html(user), visible=True),
+                gr.update(visible=False),
+                "",
+                gr.update(visible=False, value=None),
+            )
+
+        btn_delete_confirm.click(
+            do_delete_conversation,
+            inputs=[current_conv_id, session_user],
+            outputs=[conv_radio, conv_id_map, chatbot, current_conv_id, welcome_box, active_conv_box, rename_title_input, csv_download_btn],
+        )
+
+        def do_clear_all_conversations(user):
+            if not user:
+                return gr.update(choices=[]), {}, [], None, gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
+            conv_storage.delete_all_conversations(user.nom_util)
+            gr.Info("Toutes les conversations ont ete supprimees.")
+            return (
+                gr.update(choices=[], value=None),
+                {},
+                [],
+                None,
+                gr.update(value=_welcome_banner_html(user), visible=True),
+                gr.update(visible=False),
+                "",
+                gr.update(visible=False, value=None),
+            )
+
+        btn_clear_all_convs.click(
+            do_clear_all_conversations,
+            inputs=[session_user],
+            outputs=[conv_radio, conv_id_map, chatbot, current_conv_id, welcome_box, active_conv_box, rename_title_input, csv_download_btn],
         )
 
     return demo

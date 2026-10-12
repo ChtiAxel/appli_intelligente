@@ -140,3 +140,28 @@ class ConversationStorage:
             )
             rows = cursor.fetchall()
         return [Message(**row) for row in rows]
+
+    def rename_conversation(self, conversation_id: int, new_title: str) -> bool:
+        """Rename a conversation."""
+        clean_title = (new_title or "").strip()[:255]
+        if not clean_title:
+            return False
+        with db.transaction() as cursor:
+            cursor.execute(
+                "UPDATE conversations SET title = %s WHERE id = %s",
+                (clean_title, conversation_id),
+            )
+            return cursor.rowcount > 0
+
+    def delete_conversation(self, conversation_id: int) -> bool:
+        """Delete a conversation and its cascaded messages."""
+        with db.transaction() as cursor:
+            cursor.execute("DELETE FROM conversations WHERE id = %s", (conversation_id,))
+            return cursor.rowcount > 0
+
+    def delete_all_conversations(self, nom_util: str) -> bool:
+        """Delete all conversations and cascaded messages for a user."""
+        with db.transaction() as cursor:
+            cursor.execute("DELETE FROM conversations WHERE nom_util = %s", (nom_util,))
+            return cursor.rowcount > 0
+
