@@ -66,6 +66,12 @@ class ConversationStorage:
                 )
                 """
             )
+            try:
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_conversations_nom_util ON conversations (nom_util)"
+                )
+            except Exception:
+                pass
 
     def create_conversation(
         self, nom_util: str, title: str = "Nouvelle conversation"
@@ -140,3 +146,46 @@ class ConversationStorage:
             )
             rows = cursor.fetchall()
         return [Message(**row) for row in rows]
+
+    def get_user_activity_stats(self, nom_util: str) -> dict[str, int]:
+        """Retrieve activity counts (total conversations and total user questions) for a user."""
+        with db.transaction() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) AS total_conversations FROM conversations WHERE nom_util = %s",
+                (nom_util,),
+            )
+            row_conv = cursor.fetchone()
+            conv_count = 0
+            if row_conv:
+                if isinstance(row_conv, dict):
+                    conv_count = row_conv.get("total_conversations") or 0
+                elif isinstance(row_conv, (list, tuple)) and len(row_conv) > 0:
+                    conv_count = row_conv[0] or 0
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS total_questions
+                FROM messages m
+                INNER JOIN conversations c ON m.conversation_id = c.id
+                WHERE c.nom_util = %s AND m.role = 'user'
+                """,
+                (nom_util,),
+            )
+            row_questions = cursor.fetchone()
+            question_count = 0
+            if row_questions:
+                if isinstance(row_questions, dict):
+                    question_count = row_questions.get("total_questions") or 0
+                elif isinstance(row_questions, (list, tuple)) and len(row_questions) > 0:
+                    question_count = row_questions[0] or 0
+
+        return {
+            "conversations": int(conv_count or 0),
+            "questions": int(question_count or 0),
+            "total_conversations": int(conv_count or 0),
+            "total_questions": int(question_count or 0),
+            "conversations_count": int(conv_count or 0),
+            "questions_count": int(question_count or 0),
+        }
+
+    get_user_stats = get_user_activity_stats
