@@ -13,6 +13,7 @@ class UiAndLoggingTests(unittest.TestCase):
 
     def test_load_markdown_existing_and_missing_file(self):
         self.assertIn("Mentions", load_markdown("mentions-legales.md"))
+        self.assertIn("Registre", load_markdown("registre-traitements.md"))
         self.assertIn("introuvable", load_markdown("does-not-exist.md"))
 
     def test_application_logger_namespace(self):
@@ -78,6 +79,19 @@ class UiAndLoggingTests(unittest.TestCase):
         html_xss = _profile_card_html(user_xss)
         self.assertNotIn("<script>", html_xss)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html_xss)
+
+        # RGPD Consent badge
+        from datetime import datetime
+        user_rgpd = User(
+            prenom="Noa",
+            nom="Gaillard",
+            mdp="hash",
+            rgpd_accepted_at=datetime(2026, 10, 13, 12, 0),
+        )
+        html_rgpd = _profile_card_html(user_rgpd)
+        self.assertIn("profile-rgpd-badge", html_rgpd)
+        self.assertIn("Consentement RGPD", html_rgpd)
+        self.assertIn("13/10/2026", html_rgpd)
 
     def test_profile_card_html_roles(self):
         from NaturSQL.ui_gradio import _profile_card_html
@@ -184,6 +198,7 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn(".danger-zone-title", custom_css)
         self.assertIn(".danger-zone-desc", custom_css)
         self.assertIn(".delete-confirm-box", custom_css)
+        self.assertIn(".profile-rgpd-badge", custom_css)
 
         app = build_app()
         # Find accordion block in app components
@@ -198,6 +213,7 @@ class UiAndLoggingTests(unittest.TestCase):
         accordion_labels = [a.label for a in accordions]
         self.assertIn("Changer de mot de passe", accordion_labels)
         self.assertIn("Changer d'avatar", accordion_labels)
+        self.assertIn("Gestion de mes données personnelles (RGPD - Art. 20)", accordion_labels)
 
         # Verify textboxes inside profile edit are single-line (lines=1)
         edit_textboxes = [
@@ -222,6 +238,20 @@ class UiAndLoggingTests(unittest.TestCase):
             if isinstance(comp, gr.Button) and comp.value == "Supprimer mon compte"
         ]
         self.assertTrue(len(stop_buttons) >= 1)
+
+        # Verify RGPD DownloadButton exists
+        download_buttons = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.DownloadButton)
+        ]
+        self.assertTrue(len(download_buttons) >= 1)
+
+        # Verify RGPD Checkbox exists
+        rgpd_checkboxes = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Checkbox) and getattr(comp, "elem_id", None) == "signup-rgpd-cb"
+        ]
+        self.assertTrue(len(rgpd_checkboxes) >= 1)
 
 
 if __name__ == "__main__":

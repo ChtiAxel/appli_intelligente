@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from werkzeug.security import check_password_hash
 
 from NaturSQL.service.auth import (
@@ -36,10 +37,18 @@ class FakeUserStorage:
             return self.user
         return None
 
-    def create_user(self, password, first_name, last_name, role="PROF"):
+    def create_user(self, password, first_name, last_name, role="PROF", rgpd_accepted=True):
         self.created = (password, first_name, last_name)
         self.created_role = role
-        self.user = User(first_name, last_name, "hash", role=role)
+        self.created_rgpd = rgpd_accepted
+        from datetime import datetime
+        self.user = User(
+            first_name,
+            last_name,
+            "hash",
+            role=role,
+            rgpd_accepted_at=datetime.now() if rgpd_accepted else None,
+        )
         self.password = password
         return self.user
 
@@ -297,6 +306,67 @@ class AuthTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(storage.updated_avatar, ("Jean", "Dupont", None))
         self.assertIsNone(result.user.avatar)
+
+    def test_register_requires_rgpd_consent(self):
+        storage = FakeUserStorage()
+        service = AuthService(storage)
+
+        # Consent rejected
+        result_fail = service.register(
+            "Longpassword1!", "Longpassword1!", "Jean", "Dupont", rgpd_consent=False
+        )
+        self.assertFalse(result_fail.ok)
+        self.assertIn("Vous devez accepter la politique de confidentialité", result_fail.message)
+        self.assertIsNone(storage.created)
+
+        # Consent granted
+        result_ok = service.register(
+            "Longpassword1!", "Longpassword1!", "Jean", "Dupont", rgpd_consent=True
+        )
+        self.assertTrue(result_ok.ok)
+        self.assertIsNotNone(storage.created)
+        self.assertIsNotNone(result_ok.user.rgpd_accepted_at)
+
+    @patch("NaturSQL.service.auth.ConversationStorage")
+    def test_export_user_data_art_20(self, mock_conv_storage):
+        service = AuthService(FakeUserStorage())
+        # None user
+        self.assertEqual(service.export_user_data(None), {})
+
+        # Valid user
+        from datetime import datetime
+        mock_instance = mock_conv_storage.return_value
+        mock_instance.get_full_user_history.return_value = [
+            {
+                "id": 1,
+                "title": "Test Chat",
+                "created_at": "2026-10-12T10:00:00",
+                "messages": [
+                    {"id": 10, "query": "SELECT 1;", "is_user": True, "created_at": "2026-10-12T10:01:00"}
+                ]
+            }
+        ]
+
+        user = User(
+            prenom="Jean",
+            nom="Dupont",
+            mdp="hash",
+            role="PROF",
+            created_at=datetime(2026, 10, 12, 9, 0),
+            rgpd_accepted_at=datetime(2026, 10, 12, 9, 0),
+        )
+        export = service.export_user_data(user)
+        self.assertEqual(export["format"], "NaturSQL RGPD Data Export")
+        self.assertEqual(export["version"], "2.0")
+        self.assertEqual(export["user"]["prenom"], "Jean")
+        self.assertEqual(export["user"]["nom"], "Dupont")
+        self.assertEqual(export["user"]["nom_util"], "dupont.jean")
+        self.assertEqual(export["user"]["role"], "PROF")
+        self.assertEqual(export["user"]["created_at"], "2026-10-12T09:00:00")
+        self.assertEqual(export["user"]["rgpd_accepted_at"], "2026-10-12T09:00:00")
+        self.assertEqual(export["conversations_count"], 1)
+        self.assertEqual(len(export["conversations"]), 1)
+        self.assertEqual(export["conversations"][0]["title"], "Test Chat")
 
 
 if __name__ == "__main__":

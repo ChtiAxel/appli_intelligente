@@ -1,35 +1,47 @@
 # Mentions légales
 
-## 1. Éditeur du site
+## 1. Éditeur du service
 
-Le site NaturSQL est édité par :
+Le site et l'application **NaturSQL** sont développés et édités dans un cadre universitaire et pédagogique strict :
 
-Nom du responsable / propriétaire du site : 
-    - NAVE Axel, 
-    - GAILLARD Noa, 
-    - RAMPELBERGHE Rémy, 
-    - DEROO Raphaël.
+- **Établissement de rattachement** : Université du Littoral Côte d'Opale (ULCO) — Institut Universitaire de Technologie (IUT) de Calais, Département Informatique.
+- **Cadre du projet** : Situation d'Apprentissage et d'Évaluation (SAÉ « Application Intelligente »), BUT Informatique 3e année.
+- **Équipe de développement (Groupe 4)** :
+  - **Axel NAVE**
+  - **Noa GAILLARD**
+  - **Rémy RAMPELBERGHE**
+  - **Raphaël DEROO**
+- **Contact** : Département Informatique, IUT de Calais, 19 Rue Ferdinand Buisson, 62228 Calais Cedex, France.
 
-## 2. Propriété intellectuelle
+---
 
-L’ensemble des éléments présents sur le site, notamment les textes, images, logos, vidéos, bases de données, interfaces, code source, graphismes et fonctionnalités, sont protégés par le droit d’auteur et/ou par d’autres droits de propriété intellectuelle.
+## 2. Hébergement & Souveraineté des données
 
-Toute reproduction, représentation, modification, extraction, adaptation ou exploitation partielle ou totale de ces éléments est interdite sans autorisation préalable écrite de l’éditeur, sauf exception prévue par la loi.
+- **Hébergement de l'application et de la base de données** : Serveurs locaux de l'IUT de Calais (ULCO).
+- **Moteur d'Intelligence Artificielle (LLM)** : Instance locale conteneurisée **Ollama** déployée sur l'infrastructure souveraine de l'établissement. Aucune donnée, requête ou résultat n'est transmis à des serveurs tiers ou des fournisseurs Cloud externes (aucun recours à des API tierces commerciales).
 
-## 3. Données personnelles
+---
 
-Les données personnelles collectées sur le site sont traitées conformément à la politique de confidentialité.
+## 3. Propriété intellectuelle
 
-## 4. Limitation de responsabilité
+L'ensemble des éléments constituant l'application NaturSQL (code source, algorithmes, interfaces, logos, documentation) est la propriété conjointe de ses auteurs et de l'Université du Littoral Côte d'Opale dans le cadre des activités pédagogiques universitaires.
 
-L’éditeur met en œuvre tous les moyens raisonnables pour garantir l’exactitude et la mise à jour des informations publiées sur le site. Toutefois, il ne peut garantir l’absence de défauts, d’erreurs ou d’omissions, ni une disponibilité continue du service.
+Le code source du projet est mis à disposition sous licence open-source pédagogique sur le dépôt officiel du projet.
 
-L’éditeur décline toute responsabilité pour les dommages indirects résultant de l’accès ou de l’utilisation du site, y compris les pertes de données, interruptions, dysfonctionnements ou conséquences liées à l’utilisation des services proposés.
+---
 
-## 5. Liens externes
+## 4. Données à caractère personnel
 
-Le site peut contenir des liens vers des sites tiers. L’éditeur n’exerce aucun contrôle sur le contenu de ces sites et ne saurait être responsable de leur contenu, de leurs pratiques ou des données qu’ils collectent.
+Le traitement des données personnelles réalisé dans le cadre de NaturSQL est strictement conforme au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Pour toute information relative aux droits des utilisateurs, veuillez consulter notre [Politique de confidentialité](politique-confidentialite.md) ainsi que le [Registre des activités de traitement](registre-traitements.md).
+
+---
+
+## 5. Limitation de responsabilité
+
+NaturSQL est un démonstrateur technologique universitaire de traduction de langage naturel vers requêtes SQL. L'équipe pédagogique et les étudiants développeurs mettent en œuvre tous les moyens raisonnables pour garantir la fiabilité des réponses et la sécurité de l'exécution (compte en lecture seule stricte). Toutefois, l'application est fournie « en l'état » à des fins d'évaluation et de consultation pédagogique.
+
+---
 
 ## 6. Droit applicable
 
-Les présentes mentions légales sont soumises au droit français. Tout litige relatif à l’utilisation du site relève de la compétence des tribunaux français compétents.
+Les présentes mentions légales sont régies par le droit français.

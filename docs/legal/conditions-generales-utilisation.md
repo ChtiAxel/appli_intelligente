@@ -2,73 +2,63 @@
 
 ## 1. Objet
 
-Les présentes conditions générales d’utilisation régissent l’accès et l’utilisation du site NaturSQL, édité par l'équipe NaturSQL ou par la structure qui en assure la gestion.
+Les présentes Conditions Générales d’Utilisation (CGU) encadrent l’accès et l’utilisation de l’application **NaturSQL**, outil d'assistance au requêtage en langage naturel de bases de données relationnelles développé au sein de l'IUT de Calais (Université du Littoral Côte d'Opale).
 
-En accédant au site ou en créant un compte, l’utilisateur accepte sans réserve les présentes CGU.
+Toute création de compte ou utilisation du service implique l’acceptation pleine, entière et sans réserve des présentes CGU ainsi que de la [Politique de confidentialité](politique-confidentialite.md).
 
-## 2. Accès au service
+---
 
-Le site est accessible 24 heures sur 24, sous réserve des interruptions techniques nécessaires au bon fonctionnement du service, à la maintenance ou à des cas de force majeure.
+## 2. Description du service
 
-L’utilisateur s’engage à fournir des informations exactes et à ne pas utiliser le service à des fins illégales, frauduleuses ou nuisibles.
+NaturSQL permet aux utilisateurs autorisés (enseignants, secrétariats, personnels administratifs) d'interroger la base de données pédagogique universitaire en posant des questions en langage naturel (français). 
 
-## 3. Création de compte
+Le système s'appuie sur :
+- Un modèle de langage local (Ollama) traduisant la demande métier en syntaxe SQL sécurisée.
+- Une exécution confinée en lecture seule stricte (`SELECT` uniquement).
+- Une synthèse claire des résultats accompagnée de visualisations tabulaires.
 
-L’utilisateur peut être amené à créer un compte afin d’accéder à certaines fonctionnalités du service.
+---
 
-Il s’engage à :
+## 3. Accès au service et création de compte
 
-- fournir des informations exactes et à jour
-- protéger sa session et ses identifiants
-- ne pas partager son compte avec des tiers
-- informer immédiatement l’éditeur en cas de perte ou de vol de ses identifiants
+1. **Conditions d'accès** : L'accès au service est réservé aux membres autorisés dans le cadre pédagogique ou institutionnel.
+2. **Inscription** : Lors de la création de son compte, l'utilisateur renseigne obligatoirement son prénom, son nom, et un mot de passe robuste respectant la politique de sécurité (minimum 8 caractères, au moins une majuscule, un chiffre et un caractère spécial).
+3. **Consentement obligatoire** : L'inscription nécessite le consentement préalable et explicite de l'utilisateur aux présentes CGU et au traitement de ses données personnelles.
+4. **Identifiants** : L'utilisateur est seul responsable de la confidentialité de ses identifiants et de toute activité effectuée depuis sa session.
 
-L’éditeur se réserve le droit de suspendre ou supprimer tout compte en cas de non-respect des présentes conditions.
+---
 
-## 4. Utilisation du service
+## 4. Règles d'usage et engagements de l'utilisateur
 
-L’utilisateur s’engage à ne pas :
+L'utilisateur s'engage à utiliser le service de manière responsable et loyale. Il s'interdit expressément de :
+- Tenter de contourner les mécanismes de sécurité mis en place (injections SQL, tentatives d'altération de la base `appia`).
+- Soumettre des requêtes contenant des propos injurieux, diffamatoires ou contraires à l'ordre public.
+- Exploiter le système de façon abusive par des requêtes automatisées de nature à saturer l'infrastructure locale de calcul (serveur Ollama).
+- Partager ou céder ses accès à des tiers non habilités.
 
-- utiliser le service à des fins illégales ou interdites
-- diffuser du contenu illicite, diffamatoire, injurieux, discriminatoire ou portant atteinte aux droits d’autrui
-- tenter de compromettre la sécurité du site ou des systèmes informatiques
-- exploiter le service de manière abusive ou excessive
-- reproduire, extraire ou exploiter le contenu du site sans autorisation préalable
+---
 
-## 5. Contenu utilisateur
+## 5. Propriété intellectuelle
 
-L’utilisateur reste responsable du contenu qu’il publie, transmet ou partage via le service.
+L'ensemble des composants logiciels, modèles de prompts, interfaces et documentations de NaturSQL sont protégés au titre du droit d'auteur. Toute extraction non autorisée des données pédagogiques ou réutilisation commerciale est formellement prohibée.
 
-L’éditeur n’est pas responsable du contenu généré par les utilisateurs, sauf lorsque celui-ci est manifestement illicite ou lorsqu’une obligation légale impose une intervention.
+---
 
-## 6. Propriété intellectuelle
+## 6. Protection des données personnelles & Droits des utilisateurs
 
-Le site et ses contenus sont la propriété de l’éditeur ou de ses partenaires, sous réserve des droits de tiers. Toute reproduction, représentation ou adaptation sans autorisation écrite est interdite.
+Conformément au RGPD :
+- Les données recueillies sont strictement limitées aux besoins de fonctionnement du service (minimisation).
+- L'utilisateur dispose à tout moment d'un **Droit à l'effacement (Art. 17)** via le bouton « Supprimer mon compte » présent sur son profil, entraînant la purge immédiate et irréversible de l'ensemble de ses discussions.
+- L'utilisateur bénéficie d'un **Droit à la portabilité (Art. 20)** lui permettant de télécharger à tout instant l'intégralité de ses données personnelles et historiques sous format JSON structuré.
 
-## 7. Responsabilité
+---
 
-L’éditeur s’efforce de fournir un service fiable et conforme aux fonctionnalités annoncées. Toutefois, il ne peut garantir l’absence totale d’erreurs, de bugs, d’interruptions ou de pertes de données.
+## 7. Disponibilité et responsabilité
 
-L’éditeur ne saurait être tenu responsable des dommages indirects, consécutifs ou immatériels résultant de l’utilisation du site ou de l’impossibilité d’y accéder.
+NaturSQL étant un projet issu d'une SAÉ universitaire, aucune garantie de disponibilité ininterrompue n'est apportée. L'équipe pédagogique et les développeurs ne sauraient être tenus responsables d'éventuelles indisponibilités temporaires liées à la maintenance de l'infrastructure de l'IUT.
 
-## 8. Modifications du service
+---
 
-L’éditeur se réserve le droit de modifier, suspendre ou interrompre tout ou partie du service à tout moment, notamment pour des raisons de maintenance, de sécurité, de conformité ou d’évolution fonctionnelle.
+## 8. Droit applicable et juridiction compétente
 
-## 9. Abonnements et paiements
-
-Lorsque le service propose un abonnement ou un paiement en ligne, les modalités de souscription, de renouvellement, de remboursement et de facturation sont détaillées dans les conditions spécifiques applicables au service concerné. Si aucun paiement n’est proposé, cette section peut être supprimée.
-
-## 10. Données personnelles
-
-Les données personnelles sont traitées conformément à la politique de confidentialité du site.
-
-## 11. Résiliation
-
-L’éditeur peut suspendre ou clôturer l’accès au service en cas de manquement aux présentes CGU, à la sécurité du service ou à toute obligation légale.
-
-L’utilisateur peut fermer son compte à tout moment, selon les modalités prévues par le site.
-
-## 12. Loi applicable et juridiction compétente
-
-Les présentes CGU sont régies par le droit français. En cas de litige, les tribunaux français compétents seront seuls compétents.
+Les présentes CGU sont soumises au droit français. En cas de différend non résolu à l'amiable, les juridictions compétentes du ressort de l'Université du Littoral Côte d'Opale seront seules compétentes.

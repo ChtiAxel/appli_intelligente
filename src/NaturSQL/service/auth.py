@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 
 from werkzeug.security import generate_password_hash
 
+from ..storage.conversations import ConversationStorage
 from ..storage.users import User, UserAlreadyExistsError, UserStorage
 
 _SPECIAL_CHARS_RE = re.compile(r"[^A-Za-z0-9]")
@@ -103,7 +105,11 @@ class AuthService:
         first_name: str,
         last_name: str,
         role: str = DEFAULT_ROLE,
+        rgpd_consent: bool = True,
     ) -> AuthResult:
+        if not rgpd_consent:
+            return AuthResult(False, "Vous devez accepter la politique de confidentialité et les CGU pour créer un compte.")
+
         password = password or ""
         confirm_password = confirm_password or ""
         first_name = (first_name or "").strip()
@@ -120,9 +126,18 @@ class AuthService:
 
         try:
             try:
-                user = self._storage.create_user(password, first_name, last_name, role=role)
+                user = self._storage.create_user(
+                    password,
+                    first_name,
+                    last_name,
+                    role=role,
+                    rgpd_accepted=rgpd_consent,
+                )
             except TypeError:
-                user = self._storage.create_user(password, first_name, last_name)
+                try:
+                    user = self._storage.create_user(password, first_name, last_name, role=role)
+                except TypeError:
+                    user = self._storage.create_user(password, first_name, last_name)
         except UserAlreadyExistsError:
             return AuthResult(False, "Un compte existe déjà avec ces informations.")
 
@@ -221,3 +236,28 @@ class AuthService:
         self._storage.update_avatar(user.prenom, user.nom, avatar)
         updated_user = self._storage.find_by_name(user.prenom, user.nom) or user
         return AuthResult(True, "Avatar mis à jour avec succès !", updated_user)
+
+    # -- V2 RGPD: Droit à la portabilité (Art. 20) ---------------------
+
+    def export_user_data(self, user: Optional[User]) -> dict:
+        """Export all user data and chat history in compliance with GDPR Art. 20."""
+        if user is None:
+            return {}
+
+        conv_storage = ConversationStorage()
+        history = conv_storage.get_full_user_history(user.nom_util)
+        return {
+            "format": "NaturSQL RGPD Data Export",
+            "version": "2.0",
+            "exported_at": datetime.now().isoformat(),
+            "user": {
+                "prenom": user.prenom,
+                "nom": user.nom,
+                "nom_util": user.nom_util,
+                "role": user.role,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "rgpd_accepted_at": user.rgpd_accepted_at.isoformat() if user.rgpd_accepted_at else None,
+            },
+            "conversations_count": len(history),
+            "conversations": history,
+        }

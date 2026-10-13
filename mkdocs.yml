@@ -48,6 +48,7 @@ nav:
       - Mentions légales: legal/mentions-legales.md
       - Politique de confidentialité: legal/politique-confidentialite.md
       - Conditions Générales d'Utilisation: legal/conditions-generales-utilisation.md
+      - Registre des traitements (Art. 30): legal/registre-traitements.md
 
 markdown_extensions:
   - admonition
