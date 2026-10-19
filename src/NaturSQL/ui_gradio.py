@@ -7,8 +7,6 @@ import base64
 import html
 import re
 import gradio as gr
-import json
-import tempfile
 from datetime import datetime, date
 from typing import Optional, Any
 from .service.auth import AuthService, get_role_label, UserRole, ROLE_LABELS
@@ -104,31 +102,6 @@ html, body {
     text-align: center;
     margin-bottom: 0.85rem;
     width: 100%;
-}
-.profile-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 auto 8px auto;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    letter-spacing: 1px;
-}
-.profile-avatar-img {
-    width: 64px !important;
-    height: 64px !important;
-    border-radius: 50% !important;
-    object-fit: cover !important;
-    margin: 0 auto 8px auto !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
-    display: block !important;
-    border: 2px solid #e5e7eb !important;
 }
 .profile-name {
     font-size: 22px;
@@ -576,15 +549,7 @@ def _header_user_html(user: Optional[User]) -> str:
     if not user:
         return ""
     full_name = html.escape(getattr(user, "full_name", "") or "Utilisateur")
-    avatar_val = getattr(user, "avatar", None)
-    if avatar_val and str(avatar_val).strip():
-        thumb = f'<img src="{html.escape(str(avatar_val).strip())}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" alt="{full_name}" />'
-    else:
-        prenom = getattr(user, "prenom", "") or ""
-        nom = getattr(user, "nom", "") or ""
-        init = f"{(prenom[0] if prenom else '')}{(nom[0] if nom else 'U')}".upper() or "U"
-        thumb = f'<div style="width: 24px; height: 24px; border-radius: 50%; background: #111827; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">{html.escape(init)}</div>'
-    return f'<div style="display: flex; align-items: center; gap: 8px;">{thumb}<span style="font-weight: 500; font-size: 14px; color: #374151;">{full_name}</span></div>'
+    return f'<span style="font-weight: 500; font-size: 14px; color: #374151;">{full_name}</span>'
 
 def _profile_card_html(user, stats=None) -> str:
     if not user:
@@ -601,24 +566,12 @@ def _profile_card_html(user, stats=None) -> str:
         clean_prenom = re.sub(r"\s+", "-", prenom.lower())
         clean_nom = re.sub(r"\s+", "-", nom.lower())
         identifiant = f"{clean_prenom}.{clean_nom}"
-        initials = f"{prenom[0].upper()}{nom[0].upper()}"
     else:
         nom_util = getattr(user, "nom_util", "") or ""
         identifiant = nom_util.strip(".") or full_name.lower().replace(" ", "-") or "utilisateur"
-        initials = full_name[0].upper() if full_name else "U"
 
     escaped_full_name = html.escape(full_name)
     escaped_id = html.escape(identifiant)
-    escaped_initials = html.escape(initials)
-
-    # Avatar rendering
-    avatar_val = getattr(user, "avatar", None)
-    if avatar_val and str(avatar_val).strip():
-        escaped_avatar = html.escape(str(avatar_val).strip())
-        avatar_html = f'<img src="{escaped_avatar}" class="profile-avatar-img" alt="{escaped_full_name}" />'
-    else:
-        avatar_html = f'<div class="profile-avatar">{escaped_initials}</div>'
-
     # Role badge
     raw_role = getattr(user, "role", "PROF") or "PROF"
     role_key = str(raw_role).upper()
@@ -689,7 +642,6 @@ def _profile_card_html(user, stats=None) -> str:
 
     return (
         '<div class="profile-header">\n'
-        f'    {avatar_html}\n'
         f'    <div class="profile-name">{escaped_full_name}</div>\n'
         f'    <div class="profile-id">{escaped_id}</div>\n'
         '    <div class="profile-role">\n'
@@ -779,20 +731,6 @@ def build_app():
                         save_profile_button = gr.Button("Enregistrer", variant="primary", scale=1)
                         cancel_profile_button = gr.Button("Annuler", variant="secondary", scale=1)
 
-                with gr.Accordion("Changer d'avatar", open=False, elem_classes=["profile-accordion"]) as avatar_accordion:
-                    avatar_input = gr.Textbox(
-                        label="URL de l'avatar (ou laissez vide pour les initiales)",
-                        placeholder="https://... ou laissez vide",
-                        lines=1,
-                        max_lines=1,
-                    )
-                    with gr.Row():
-                        btn_preset_prof = gr.Button("🎓 Enseignant", size="sm")
-                        btn_preset_secretaire = gr.Button("📋 Secrétaire", size="sm")
-                        btn_preset_admin = gr.Button("🛡️ Admin", size="sm")
-                        btn_clear_avatar = gr.Button("✖ Initiales", size="sm")
-                    btn_save_avatar = gr.Button("Mettre à jour l'avatar", variant="primary")
-
                 with gr.Accordion("Changer de mot de passe", open=False, elem_classes=["profile-accordion"]) as password_accordion:
                     current_pwd_input = gr.Textbox(label="Mot de passe actuel *", type="password", placeholder="••••••••")
                     new_pwd_input = gr.Textbox(
@@ -803,10 +741,6 @@ def build_app():
                     )
                     confirm_pwd_input = gr.Textbox(label="Confirmer le nouveau mot de passe *", type="password", placeholder="••••••••")
                     btn_submit_pwd = gr.Button("Mettre à jour le mot de passe", variant="primary")
-
-                with gr.Accordion("Gestion de mes données personnelles (RGPD - Art. 20)", open=False, elem_classes=["profile-accordion"]) as rgpd_accordion:
-                    gr.HTML('<div style="font-size:12px;color:#4b5563;margin-bottom:8px;line-height:1.5;">Conformément à l\'Article 20 du RGPD (Droit à la portabilité), vous pouvez exporter et télécharger l\'ensemble de vos informations de compte ainsi que l\'historique intégral de vos conversations au format JSON structuré.</div>')
-                    export_rgpd_download = gr.DownloadButton("📥 Télécharger mes données personnelles (JSON)", variant="secondary", size="sm")
 
                 with gr.Column(elem_classes=["danger-zone"]) as danger_zone_section:
                     gr.HTML(
@@ -997,19 +931,18 @@ def build_app():
         def go_to_profile_view(user):
             s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv = go_to_page("profile", user)
             if user is None:
-                return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, gr.update(), gr.update()
+                return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, gr.update()
             try:
                 fresh_stats = conv_storage.get_user_activity_stats(user.nom_util)
             except Exception:
                 fresh_stats = {}
             card_html = _profile_card_html(user, fresh_stats)
-            current_avatar = getattr(user, "avatar", None) or ""
-            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, card_html, current_avatar
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, card_html
 
         go_to_profile_btn.click(
             go_to_profile_view,
             inputs=[session_user],
-            outputs=page_outputs + [profile_info, avatar_input],
+            outputs=page_outputs + [profile_info],
         )
 
         def do_sign_up(first_name, last_name, password, confirm, rgpd_consent):
@@ -1054,7 +987,7 @@ def build_app():
                 None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), "", "", "",
                 gr.update(visible=False, open=False), gr.update(visible=True), "",
                 gr.update(value=[]), gr.update(choices=[]), {}, None, "", gr.update(visible=False),
-                gr.update(visible=False), gr.update(visible=True), "", "", "", "", ""
+                gr.update(visible=False), gr.update(visible=True), "", "", "", ""
             )
 
         disconnect_button.click(
@@ -1063,7 +996,7 @@ def build_app():
                 session_user, signin_page, profile_page, conversation_page, signin_first_name, signin_last_name, signin_password,
                 profile_edit_form, edit_profile_button, profile_status,
                 chatbot, conv_radio, conv_id_map, current_conv_id, header_user_name, header_profile_container,
-                delete_confirm_section, btn_start_delete_account, delete_password_input, current_pwd_input, new_pwd_input, confirm_pwd_input, avatar_input
+                delete_confirm_section, btn_start_delete_account, delete_password_input, current_pwd_input, new_pwd_input, confirm_pwd_input
             ]
         )
 
@@ -1118,37 +1051,6 @@ def build_app():
             do_save_profile,
             inputs=[session_user, edit_first_name, edit_last_name],
             outputs=[session_user, profile_status, profile_info, profile_edit_form, edit_profile_button, header_user_name]
-        )
-
-        # --- Avatar Management (R5) ---
-        btn_preset_prof.click(lambda: "https://api.dicebear.com/7.x/bottts/svg?seed=prof", outputs=[avatar_input])
-        btn_preset_secretaire.click(lambda: "https://api.dicebear.com/7.x/bottts/svg?seed=secretaire", outputs=[avatar_input])
-        btn_preset_admin.click(lambda: "https://api.dicebear.com/7.x/bottts/svg?seed=admin", outputs=[avatar_input])
-        btn_clear_avatar.click(lambda: "", outputs=[avatar_input])
-
-        def do_save_avatar(user, avatar_url):
-            if user is None:
-                gr.Warning("Session expirée, veuillez vous reconnecter.")
-                return user, gr.update(), gr.update(), gr.update()
-            clean_avatar = (avatar_url or "").strip() or None
-            result = auth_service.update_avatar(user, clean_avatar)
-            if not result.ok:
-                gr.Warning(result.message)
-                return user, gr.update(), gr.update(), gr.update()
-            gr.Info("Avatar mis à jour avec succès !")
-            updated_user = result.user or user
-            try:
-                fresh_stats = conv_storage.get_user_activity_stats(updated_user.nom_util)
-            except Exception:
-                fresh_stats = {}
-            card_html = _profile_card_html(updated_user, fresh_stats)
-            header_html = _header_user_html(updated_user)
-            return updated_user, card_html, header_html, (clean_avatar or "")
-
-        btn_save_avatar.click(
-            do_save_avatar,
-            inputs=[session_user, avatar_input],
-            outputs=[session_user, profile_info, header_user_name, avatar_input],
         )
 
         # --- Secure Password Change (R2) ---
@@ -1216,26 +1118,6 @@ def build_app():
                 header_user_name, header_profile_container
             ],
         )
-        # --- RGPD Data Export (Art. 20) ---
-        def do_export_user_data(user):
-            if not user:
-                gr.Warning("Session expirée, veuillez vous reconnecter.")
-                return None
-            data = auth_service.export_user_data(user)
-            temp_dir = tempfile.gettempdir()
-            filename = f"natursql_export_{user.nom_util}.json"
-            filepath = os.path.join(temp_dir, filename)
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            gr.Info("Données personnelles exportées avec succès !")
-            return filepath
-
-        export_rgpd_download.click(
-            do_export_user_data,
-            inputs=[session_user],
-            outputs=[export_rgpd_download],
-        )
-
         # -------------------- Conversation: Core Chat Logic -------------------
 
         def _format_bot_response(sql: str | None, results: list[dict] | None) -> str:

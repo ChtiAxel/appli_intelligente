@@ -15,8 +15,7 @@ from NaturSQL.storage.db import (
     QueryTimeoutError,
     _classify_db_error,
     execute_readonly_query,
-    get_connection,
-    get_readonly_connection,
+    get_query_connection,
     mask_string_literals,
     strip_sql_comments,
 )
@@ -57,14 +56,8 @@ FORBIDDEN_SYSTEM_PATTERNS = re.compile(
 
 def database_schema() -> str:
     """Return the schema exposed to the language model."""
-    conn_getter = get_readonly_connection
-    if getattr(get_connection, "_mock_name", None) is not None or (
-        hasattr(get_connection, "return_value") and hasattr(get_connection, "assert_called")
-    ):
-        conn_getter = get_connection
-
     try:
-        with conn_getter() as connection:
+        with get_query_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
             with connection.cursor() as cursor:
                 placeholders = ", ".join("%s" for _ in ALLOWED_TABLES)
                 cursor.execute(
@@ -113,15 +106,9 @@ def validate_read_only_sql(sql: str) -> str:
 
 
 def execute_query(sql: str) -> list[dict[str, Any]]:
-    """Execute a validated query with the read-only account (synchronous, pymysql)."""
-    conn_getter = get_readonly_connection
-    if getattr(get_connection, "_mock_name", None) is not None or (
-        hasattr(get_connection, "return_value") and hasattr(get_connection, "assert_called")
-    ):
-        conn_getter = get_connection
-
+    """Execute a validated query with the shared application account (synchronous, pymysql)."""
     try:
-        with conn_getter() as connection:
+        with get_query_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
             return execute_readonly_query(
                 sql,
                 connection=connection,
@@ -139,7 +126,7 @@ async def text_to_sql(question: str, llm: LLMClient) -> str:
 
 
 async def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str, list[dict[str, Any]]]:
-    """Translate a question to safe SQL and execute it against MariaDB using the read-only account.
+    """Translate a question to safe SQL and execute it against MariaDB using the shared application account.
 
     pymysql is blocking, so DB calls run in a worker thread to keep the
     event loop (and the Gradio UI) responsive.
