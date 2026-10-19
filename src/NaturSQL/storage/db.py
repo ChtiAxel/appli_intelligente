@@ -76,6 +76,36 @@ def get_readonly_connection(
     return conn
 
 
+def get_query_connection(
+    timeout: float | None = None,
+) -> pymysql.connections.Connection:
+    """Open a timed query connection using the application database account.
+
+    Every authenticated profile uses the same database access.
+    """
+    effective_timeout = float(timeout if timeout is not None else config.DB_QUERY_TIMEOUT)
+    conn = pymysql.connect(
+        host=config.DB_HOST,
+        port=config.DB_PORT,
+        user=config.DB_USER,
+        password=config.DB_PASSWORD,
+        database=config.DB_NAME,
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True,
+        read_timeout=effective_timeout,
+        write_timeout=effective_timeout,
+        connect_timeout=effective_timeout,
+    )
+    # Attempt to set MariaDB server-side max statement execution time if supported
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SET SESSION max_statement_time = {effective_timeout}")
+    except Exception:
+        # Unsupported by some MariaDB configurations or test mocks; socket timeout remains watchdog
+        pass
+    return conn
+
+
 @contextmanager
 def transaction() -> Iterator[pymysql.cursors.DictCursor]:
     """Yield a cursor inside a committed transaction (rolled back on error)."""

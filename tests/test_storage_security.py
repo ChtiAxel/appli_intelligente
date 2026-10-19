@@ -287,8 +287,8 @@ def test_execution_timeout_raises_query_timeout_error():
 # 6. Intégration avec ask_database
 # =====================================================================
 
-async def test_ask_database_uses_readonly_connection_and_limits():
-    """Vérifie que ask_database utilise bien la connexion lecture seule et applique les limites."""
+async def test_ask_database_uses_application_connection_and_limits():
+    """Vérifie que ask_database utilise bien la connexion de l'application et applique les limites."""
     mock_conn = MagicMock()
     mock_conn.__enter__.return_value = mock_conn
     mock_cursor = mock_conn.cursor.return_value.__enter__.return_value
@@ -298,7 +298,7 @@ async def test_ask_database_uses_readonly_connection_and_limits():
     llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM cours")
 
     with patch.object(core, "database_schema", return_value="TABLE cours: id_cours varchar"):
-        with patch("NaturSQL.service.core.get_readonly_connection", return_value=mock_conn):
+        with patch("NaturSQL.service.core.get_query_connection", return_value=mock_conn):
             sql, rows = await core.ask_database("Combien de cours ?", llm=llm)
 
     assert sql == "SELECT COUNT(*) AS count FROM cours"
@@ -789,3 +789,18 @@ def test_forbidden_sql_blocks_for_share_and_into():
         assert "interdite" in str(exc_info.value)
 
 
+
+
+@patch("NaturSQL.storage.db.pymysql.connect")
+def test_application_query_connection_uses_shared_credentials_and_timeouts(mock_connect):
+    conn = db.get_query_connection(timeout=2.0)
+    params = mock_connect.call_args.kwargs
+    assert params["user"] == config.DB_USER
+    assert params["password"] == config.DB_PASSWORD
+    assert params["read_timeout"] == 2.0
+    assert params["write_timeout"] == 2.0
+    assert params["connect_timeout"] == 2.0
+    assert params["autocommit"] is True
+    conn.cursor.return_value.__enter__.return_value.execute.assert_called_once_with(
+        "SET SESSION max_statement_time = 2.0"
+    )

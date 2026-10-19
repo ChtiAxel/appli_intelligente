@@ -12,12 +12,37 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from typing import Optional
 
+from werkzeug.security import generate_password_hash
+
+from ..storage.conversations import ConversationStorage
 from ..storage.users import User, UserAlreadyExistsError, UserStorage
 
 _SPECIAL_CHARS_RE = re.compile(r"[^A-Za-z0-9]")
 MIN_PASSWORD_LENGTH = 8
+
+
+class UserRole(str, Enum):
+    PROF = "PROF"
+    SECRETAIRE = "SECRETAIRE"
+    ADMIN = "ADMIN"
+
+
+DEFAULT_ROLE = UserRole.PROF.value
+
+ROLE_LABELS = {
+    UserRole.PROF.value: "Enseignant",
+    UserRole.SECRETAIRE.value: "Secrétaire",
+    UserRole.ADMIN.value: "Administrateur",
+}
+
+
+def get_role_label(role: str) -> str:
+    """Return the French display label for a role."""
+    return ROLE_LABELS.get(role, role)
 
 
 @dataclass
@@ -29,12 +54,13 @@ class AuthResult:
     user: Optional[User] = None
 
 
-def _validate_password(password: str) -> Optional[str]:
+def validate_password(password: Optional[str]) -> Optional[str]:
     """Return an error message if `password` is too weak, else None.
 
     Règle : au moins 8 caractères, une majuscule, un chiffre et un
     caractère spécial.
     """
+    password = password or ""
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"Le mot de passe doit contenir au moins {MIN_PASSWORD_LENGTH} caractères."
     if not any(c.isupper() for c in password):
@@ -44,6 +70,9 @@ def _validate_password(password: str) -> Optional[str]:
     if not _SPECIAL_CHARS_RE.search(password):
         return "Le mot de passe doit contenir au moins un caractère spécial."
     return None
+
+
+_validate_password = validate_password
 
 
 class AuthService:
@@ -75,7 +104,12 @@ class AuthService:
         confirm_password: str,
         first_name: str,
         last_name: str,
+        role: str = DEFAULT_ROLE,
+        rgpd_consent: bool = True,
     ) -> AuthResult:
+        if not rgpd_consent:
+            return AuthResult(False, "Vous devez accepter la politique de confidentialité et les CGU pour créer un compte.")
+
         password = password or ""
         confirm_password = confirm_password or ""
         first_name = (first_name or "").strip()
@@ -84,14 +118,26 @@ class AuthService:
         if not all([password, confirm_password, first_name, last_name]):
             return AuthResult(False, "Tous les champs sont obligatoires.")
 
-        password_error = _validate_password(password)
+        password_error = validate_password(password)
         if password_error:
             return AuthResult(False, password_error)
         if password != confirm_password:
             return AuthResult(False, "Les mots de passe ne correspondent pas.")
 
         try:
-            user = self._storage.create_user(password, first_name, last_name)
+            try:
+                user = self._storage.create_user(
+                    password,
+                    first_name,
+                    last_name,
+                    role=role,
+                    rgpd_accepted=rgpd_consent,
+                )
+            except TypeError:
+                try:
+                    user = self._storage.create_user(password, first_name, last_name, role=role)
+                except TypeError:
+                    user = self._storage.create_user(password, first_name, last_name)
         except UserAlreadyExistsError:
             return AuthResult(False, "Un compte existe déjà avec ces informations.")
 
@@ -103,7 +149,10 @@ class AuthService:
 
     # -- US-08: modification du profil -----------------------------------
 
-    def update_profile(self, current_user: User, first_name: str, last_name: str) -> AuthResult:
+    def update_profile(self, current_user: Optional[User], first_name: str, last_name: str) -> AuthResult:
+        if current_user is None:
+            return AuthResult(False, "Session expirée, veuillez vous reconnecter.")
+
         first_name = (first_name or "").strip()
         last_name = (last_name or "").strip()
 
@@ -114,3 +163,101 @@ class AuthService:
 
         updated = self._storage.find_by_name(first_name, last_name)
         return AuthResult(True, "Profil mis à jour avec succès.", updated)
+
+    # -- V2 R2: changement de mot de passe ------------------------------
+
+    def change_password(
+        self,
+        user: Optional[User],
+        current_password: str,
+        new_password: str,
+        confirm_password: str,
+    ) -> AuthResult:
+        """Validate, verify old password, hash new password and update storage."""
+        if user is None:
+            return AuthResult(False, "Session expirée, veuillez vous reconnecter.")
+
+        current_password = current_password or ""
+        new_password = new_password or ""
+        confirm_password = confirm_password or ""
+
+        if not current_password or not new_password or not confirm_password:
+            return AuthResult(False, "Tous les champs sont obligatoires.")
+
+        authenticated_user = self._storage.authenticate(user.prenom, user.nom, current_password)
+        if authenticated_user is None:
+            return AuthResult(False, "L'ancien mot de passe est incorrect.")
+
+        if new_password != confirm_password:
+            return AuthResult(False, "Les nouveaux mots de passe ne correspondent pas.")
+
+        if new_password == current_password:
+            return AuthResult(False, "Le nouveau mot de passe doit être différent de l'ancien.")
+
+        password_error = validate_password(new_password)
+        if password_error:
+            return AuthResult(False, password_error)
+
+        new_hash = generate_password_hash(new_password)
+        self._storage.update_password(user.prenom, user.nom, new_hash)
+
+        updated_user = self._storage.find_by_name(user.prenom, user.nom) or user
+        return AuthResult(True, "Mot de passe modifié avec succès !", updated_user)
+
+    # -- V2 R6: suppression de compte (RGPD) ---------------------------
+
+    def delete_account(self, user: Optional[User], password: str) -> AuthResult:
+        """Permanently delete user account and associated data in compliance with GDPR."""
+        if user is None:
+            return AuthResult(False, "Session expirée ou invalide.")
+
+        password = password or ""
+        if not password:
+            return AuthResult(False, "Le mot de passe est obligatoire pour confirmer la suppression.")
+
+        authenticated_user = self._storage.authenticate(user.prenom, user.nom, password)
+        if authenticated_user is None:
+            return AuthResult(False, "Mot de passe incorrect. La suppression a été annulée.")
+
+        try:
+            self._storage.delete_user(user.prenom, user.nom, user.nom_util)
+        except Exception as exc:
+            return AuthResult(False, f"Erreur lors de la suppression du compte : {exc}")
+
+        return AuthResult(True, "Compte et données supprimés avec succès.")
+
+    # -- V2 R5: mise à jour de l'avatar ---------------------------------
+
+    def update_avatar(self, user: Optional[User], avatar: Optional[str]) -> AuthResult:
+        """Update user avatar in storage."""
+        if user is None:
+            return AuthResult(False, "Session expirée ou invalide.")
+
+        self._storage.update_avatar(user.prenom, user.nom, avatar)
+        updated_user = self._storage.find_by_name(user.prenom, user.nom) or user
+        return AuthResult(True, "Avatar mis à jour avec succès !", updated_user)
+
+    # -- V2 RGPD: Droit à la portabilité (Art. 20) ---------------------
+
+    def export_user_data(self, user: Optional[User]) -> dict:
+        """Export all user data and chat history in compliance with GDPR Art. 20."""
+        if user is None:
+            return {}
+
+        conv_storage = ConversationStorage()
+        history = conv_storage.get_full_user_history(user.nom_util)
+        return {
+            "format": "NaturSQL RGPD Data Export",
+            "version": "2.0",
+            "exported_at": datetime.now().isoformat(),
+            "user": {
+                "prenom": user.prenom,
+                "nom": user.nom,
+                "nom_util": user.nom_util,
+                "role": user.role,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "rgpd_accepted_at": user.rgpd_accepted_at.isoformat() if user.rgpd_accepted_at else None,
+            },
+            "conversations_count": len(history),
+            "conversations": history,
+        }

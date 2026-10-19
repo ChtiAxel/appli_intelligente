@@ -66,6 +66,19 @@ class ConversationStorage:
                 )
                 """
             )
+            try:
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_conversations_nom_util ON conversations (nom_util)"
+                )
+            except Exception:
+                pass
+            try:
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_conversation_created "
+                    "ON messages (conversation_id, created_at, id)"
+                )
+            except Exception:
+                pass
 
     def create_conversation(
         self, nom_util: str, title: str = "Nouvelle conversation"
@@ -164,4 +177,97 @@ class ConversationStorage:
         with db.transaction() as cursor:
             cursor.execute("DELETE FROM conversations WHERE nom_util = %s", (nom_util,))
             return cursor.rowcount > 0
+    def get_user_activity_stats(self, nom_util: str) -> dict[str, int]:
+        """Retrieve activity counts (total conversations and total user questions) for a user."""
+        with db.transaction() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) AS total_conversations FROM conversations WHERE nom_util = %s",
+                (nom_util,),
+            )
+            row_conv = cursor.fetchone()
+            conv_count = 0
+            if row_conv:
+                if isinstance(row_conv, dict):
+                    conv_count = row_conv.get("total_conversations") or 0
+                elif isinstance(row_conv, (list, tuple)) and len(row_conv) > 0:
+                    conv_count = row_conv[0] or 0
 
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS total_questions
+                FROM messages m
+                INNER JOIN conversations c ON m.conversation_id = c.id
+                WHERE c.nom_util = %s AND m.role = 'user'
+                """,
+                (nom_util,),
+            )
+            row_questions = cursor.fetchone()
+            question_count = 0
+            if row_questions:
+                if isinstance(row_questions, dict):
+                    question_count = row_questions.get("total_questions") or 0
+                elif isinstance(row_questions, (list, tuple)) and len(row_questions) > 0:
+                    question_count = row_questions[0] or 0
+
+        return {
+            "conversations": int(conv_count or 0),
+            "questions": int(question_count or 0),
+            "total_conversations": int(conv_count or 0),
+            "total_questions": int(question_count or 0),
+            "conversations_count": int(conv_count or 0),
+            "questions_count": int(question_count or 0),
+        }
+
+    get_user_stats = get_user_activity_stats
+
+    def get_full_user_history(self, nom_util: str) -> list[dict]:
+        """Retrieve all conversations and their ordered messages for RGPD data export."""
+        with db.transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id AS conversation_id, c.title AS conversation_title,
+                       c.created_at AS conversation_created_at,
+                       m.id AS message_id, m.role, m.content, m.sql_generated,
+                       m.created_at AS message_created_at
+                FROM conversations c
+                LEFT JOIN messages m ON m.conversation_id = c.id
+                WHERE c.nom_util = %s
+                ORDER BY c.created_at DESC, c.id DESC,
+                         m.created_at ASC, m.id ASC
+                """,
+                (nom_util,),
+            )
+            rows = cursor.fetchall()
+
+        history_by_id: dict[int, dict] = {}
+        for row in rows:
+            conversation_id = row["conversation_id"]
+            conversation = history_by_id.setdefault(
+                conversation_id,
+                {
+                    "conversation_id": conversation_id,
+                    "title": row["conversation_title"],
+                    "created_at": (
+                        row["conversation_created_at"].isoformat()
+                        if row["conversation_created_at"]
+                        else None
+                    ),
+                    "messages": [],
+                },
+            )
+            if row["message_id"] is not None:
+                conversation["messages"].append(
+                    {
+                        "id": row["message_id"],
+                        "role": row["role"],
+                        "content": row["content"],
+                        "sql_generated": row["sql_generated"],
+                        "created_at": (
+                            row["message_created_at"].isoformat()
+                            if row["message_created_at"]
+                            else None
+                        ),
+                    }
+                )
+        return list(history_by_id.values())
+        return list(history_by_id.values())

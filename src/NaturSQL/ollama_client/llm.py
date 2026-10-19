@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .async_client import AsyncOllamaClient
+from .ollama_wrapper_iut import OllamaResponseError
 
 SQL_SYSTEM_PROMPT = (
     "Tu es un assistant SQL MariaDB. Genere uniquement une requete "
@@ -52,13 +53,21 @@ class LLMClient:
 
     async def generate_sql(self, question: str, schema: str) -> str:
         """Génère une requête SQL en lecture seule depuis une question."""
-        response = await self.client.generate(
-            f"Schema autorise:\n{schema}\n\n{SQL_FEW_SHOTS}Question:\n{question}",
-            system=SQL_SYSTEM_PROMPT,
-            options={"temperature": 0},
+        prompt = f"Schema autorise:\n{schema}\n\n{SQL_FEW_SHOTS}Question:\n{question}"
+        for _ in range(2):
+            response = await self.client.generate(
+                prompt,
+                system=SQL_SYSTEM_PROMPT,
+                # No output-token cap; the request timeout still applies.
+                options={"temperature": 0, "num_predict": -1},
+                think=False,
+            )
+            sql = _strip_markdown_fence(response)
+            if sql:
+                return sql
+        raise OllamaResponseError(
+            "L'IA n'a renvoyé aucune requête SQL après deux tentatives. Veuillez réessayer."
         )
-        return _strip_markdown_fence(response)
-
     async def generate_title(self, question: str) -> str:
         """Génère un titre très court (3 à 5 mots en français) pour nommer la discussion."""
         prompt = (

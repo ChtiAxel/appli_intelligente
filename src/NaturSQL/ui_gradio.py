@@ -10,14 +10,18 @@ import csv
 import tempfile
 from datetime import datetime
 import gradio as gr
-from .service.auth import AuthService
+from datetime import datetime, date
+from typing import Optional, Any
+from .service.auth import AuthService, get_role_label, UserRole, ROLE_LABELS
 from .storage.conversations import ConversationStorage
+from .storage.users import User
 from .service.core import ask_database
 from .service.monitoring import get_system_status
 from .ollama_client.llm import LLMClient
 
 def load_markdown(filename: str) -> str:
     candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "docs", "legal", filename),
         os.path.join(os.path.dirname(__file__), "docs", "legal", filename),
         os.path.join(os.path.dirname(__file__), "docs", filename),
         os.path.join(os.path.dirname(__file__), "..", "..", filename),
@@ -104,21 +108,6 @@ html, body {
     margin-bottom: 0.85rem;
     width: 100%;
 }
-.profile-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: #111827;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 auto 8px auto;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    letter-spacing: 1px;
-}
 .profile-name {
     font-size: 22px;
     font-weight: 700;
@@ -144,6 +133,105 @@ html, body {
     color: #6b7280;
     margin: 0;
     text-align: center;
+}
+.profile-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 3px 12px !important;
+    border-radius: 9999px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    margin: 4px 0 6px 0 !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+}
+.badge-prof {
+    background-color: #eff6ff !important;
+    border-color: #bfdbfe !important;
+    color: #1d4ed8 !important;
+}
+.badge-secretaire {
+    background-color: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+    color: #047857 !important;
+}
+.badge-admin {
+    background-color: #fef2f2 !important;
+    border-color: #fecaca !important;
+    color: #b91c1c !important;
+}
+.profile-rgpd-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+    color: #4b5563 !important;
+    background: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 9999px !important;
+    padding: 2px 10px !important;
+    margin-top: 4px !important;
+}
+.profile-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    padding: 12px 6px !important;
+    margin: 0.85rem 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.profile-stat-box {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.profile-stat-value {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #111827 !important;
+    line-height: 1.2 !important;
+}
+.profile-stat-label {
+    font-size: 11px !important;
+    color: #6b7280 !important;
+    margin-top: 3px !important;
+}
+.danger-zone {
+    margin-top: 1.5rem !important;
+    padding: 1rem !important;
+    border: 1px solid #fecaca !important;
+    background-color: #fef2f2 !important;
+    border-radius: 8px !important;
+    text-align: left !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.danger-zone-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #991b1b !important;
+    margin-bottom: 4px !important;
+}
+.danger-zone-desc {
+    font-size: 12px !important;
+    color: #7f1d1d !important;
+    margin-bottom: 12px !important;
+    line-height: 1.4 !important;
+}
+.delete-confirm-box {
+    margin-top: 0.75rem !important;
+    padding: 0.85rem !important;
+    background: #ffffff !important;
+    border: 1px solid #fca5a5 !important;
+    border-radius: 6px !important;
 }
 .profile-accordion {
     border: 1px solid #e5e7eb !important;
@@ -244,7 +332,6 @@ footer.svelte-17lrt0r, footer.svelte-1rjryqp, footer {
 
 /* --- Cacher la boîte de chargement Processing --- */
 .progress-text { display: none !important; }
-.toast-wrap { display: none !important; }
 div[class*="progress-text"] { display: none !important; }
 
 /* --- Conversation Page CSS --- */
@@ -611,11 +698,28 @@ def _status_html(message: str, ok: bool) -> str:
     css_class = "status-msg ok" if ok else "status-msg error"
     return f'<div class="{css_class}">{message}</div>'
 
-def _profile_card_html(user) -> str:
+_FRENCH_MONTHS = {
+    1: "janv.", 2: "févr.", 3: "mars", 4: "avr.", 5: "mai", 6: "juin",
+    7: "juil.", 8: "août", 9: "sept.", 10: "oct.", 11: "nov.", 12: "déc."
+}
+
+ROLE_CONFIGS = {
+    "PROF": {"label": "Enseignant", "class": "badge-prof", "icon": "🎓"},
+    "SECRETAIRE": {"label": "Secrétaire", "class": "badge-secretaire", "icon": "📋"},
+    "ADMIN": {"label": "Administrateur", "class": "badge-admin", "icon": "🛡️"},
+}
+
+def _header_user_html(user: Optional[User]) -> str:
+    if not user:
+        return ""
+    full_name = html.escape(getattr(user, "full_name", "") or "Utilisateur")
+    return f'<span style="font-weight: 500; font-size: 14px; color: #374151;">{full_name}</span>'
+
+def _profile_card_html(user, stats=None) -> str:
     if not user:
         return (
-            '<div class="profile-header">'
-            '<div class="profile-role">Erreur de chargement</div>'
+            '<div class="profile-header">\n'
+            '    <div class="profile-role">Erreur de chargement</div>\n'
             '</div>'
         )
     prenom = " ".join((getattr(user, "prenom", "") or "").split())
@@ -626,22 +730,89 @@ def _profile_card_html(user) -> str:
         clean_prenom = re.sub(r"\s+", "-", prenom.lower())
         clean_nom = re.sub(r"\s+", "-", nom.lower())
         identifiant = f"{clean_prenom}.{clean_nom}"
-        initials = f"{prenom[0].upper()}{nom[0].upper()}"
     else:
         nom_util = getattr(user, "nom_util", "") or ""
         identifiant = nom_util.strip(".") or full_name.lower().replace(" ", "-") or "utilisateur"
-        initials = full_name[0].upper() if full_name else "U"
 
     escaped_full_name = html.escape(full_name)
     escaped_id = html.escape(identifiant)
-    escaped_initials = html.escape(initials)
+    # Role badge
+    raw_role = getattr(user, "role", "PROF") or "PROF"
+    role_key = str(raw_role).upper()
+    role_cfg = ROLE_CONFIGS.get(role_key, ROLE_CONFIGS["PROF"])
+    badge_html = f'<div class="profile-badge {role_cfg["class"]}">{role_cfg["icon"]} {role_cfg["label"]}</div>'
+
+    # Activity stats
+    if stats is None:
+        try:
+            nom_util = getattr(user, "nom_util", "")
+            if nom_util:
+                stats = ConversationStorage().get_user_activity_stats(nom_util)
+            else:
+                stats = {}
+        except Exception:
+            stats = {}
+
+    conv_count = 0
+    question_count = 0
+    if isinstance(stats, dict):
+        conv_count = stats.get("conversations", stats.get("total_conversations", 0)) or 0
+        question_count = stats.get("questions", stats.get("total_questions", 0)) or 0
+
+    # Member since date
+    created_at = getattr(user, "created_at", None)
+    if created_at is None:
+        created_at = datetime.now()
+    elif isinstance(created_at, str):
+        try:
+            created_at = datetime.fromisoformat(created_at)
+        except Exception:
+            try:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                created_at = datetime.now()
+
+    formatted_date = f"{created_at.day} {_FRENCH_MONTHS.get(created_at.month, '')} {created_at.year}"
+
+    stats_html = (
+        '    <div class="profile-stats-grid">\n'
+        '        <div class="profile-stat-box">\n'
+        f'            <div class="profile-stat-value">{conv_count}</div>\n'
+        '            <div class="profile-stat-label">Conversations</div>\n'
+        '        </div>\n'
+        '        <div class="profile-stat-box">\n'
+        f'            <div class="profile-stat-value">{question_count}</div>\n'
+        '            <div class="profile-stat-label">Questions posées</div>\n'
+        '        </div>\n'
+        '        <div class="profile-stat-box">\n'
+        f'            <div class="profile-stat-value">{formatted_date}</div>\n'
+        '            <div class="profile-stat-label">Membre depuis</div>\n'
+        '        </div>\n'
+        '    </div>'
+    )
+
+    # RGPD consent date
+    rgpd_at = getattr(user, "rgpd_accepted_at", None)
+    if rgpd_at:
+        if isinstance(rgpd_at, str):
+            try:
+                rgpd_at = datetime.fromisoformat(rgpd_at)
+            except Exception:
+                pass
+        rgpd_str = rgpd_at.strftime("%d/%m/%Y") if hasattr(rgpd_at, "strftime") else str(rgpd_at)
+        rgpd_badge = f'<div class="profile-rgpd-badge">🛡️ Consentement RGPD : {rgpd_str}</div>'
+    else:
+        rgpd_badge = '<div class="profile-rgpd-badge">🛡️ Consentement RGPD : Actif</div>'
 
     return (
         '<div class="profile-header">\n'
-        f'    <div class="profile-avatar">{escaped_initials}</div>\n'
         f'    <div class="profile-name">{escaped_full_name}</div>\n'
         f'    <div class="profile-id">{escaped_id}</div>\n'
-        '    <div class="profile-role">Utilisateur Standard</div>\n'
+        '    <div class="profile-role">\n'
+        f'        {badge_html}\n'
+        f'        {rgpd_badge}\n'
+        '    </div>\n'
+        f'{stats_html}\n'
         '</div>'
     )
 
@@ -829,6 +1000,13 @@ def build_app():
                     signup_password = gr.Textbox(label="Mot de passe *", type="password", placeholder="Mot de passe", info="8 caractères min., 1 majuscule, 1 chiffre, 1 caractère spécial.")
                     signup_confirm = gr.Textbox(label="Confirmer le mot de passe *", type="password", placeholder="Confirmer le mot de passe")
                     
+                    signup_rgpd = gr.Checkbox(
+                        label="J'ai lu et j'accepte la politique de confidentialité et les CGU *",
+                        value=False,
+                        elem_id="signup-rgpd-cb"
+                    )
+                    gr.HTML('<div style="font-size:11px;color:#6b7280;margin:-8px 0 12px 2px;">En cochant cette case, vous consentez au traitement de vos données conformément aux <a href="#" onclick="document.getElementById(\'btn-show-privacy\').click(); return false;" style="text-decoration:underline;color:#2563eb;">politique de confidentialité</a> et <a href="#" onclick="document.getElementById(\'btn-show-cgu\').click(); return false;" style="text-decoration:underline;color:#2563eb;">CGU</a> de NaturSQL.</div>')
+
                     signup_status = gr.HTML()
                     signup_button = gr.Button("S'inscrire", variant="primary")
                     
@@ -850,6 +1028,31 @@ def build_app():
                         save_profile_button = gr.Button("Enregistrer", variant="primary", scale=1)
                         cancel_profile_button = gr.Button("Annuler", variant="secondary", scale=1)
 
+                with gr.Accordion("Changer de mot de passe", open=False, elem_classes=["profile-accordion"]) as password_accordion:
+                    current_pwd_input = gr.Textbox(label="Mot de passe actuel *", type="password", placeholder="••••••••")
+                    new_pwd_input = gr.Textbox(
+                        label="Nouveau mot de passe *",
+                        type="password",
+                        placeholder="••••••••",
+                        info="8 car. min, 1 majuscule, 1 chiffre, 1 car. spécial",
+                    )
+                    confirm_pwd_input = gr.Textbox(label="Confirmer le nouveau mot de passe *", type="password", placeholder="••••••••")
+                    btn_submit_pwd = gr.Button("Mettre à jour le mot de passe", variant="primary")
+
+                with gr.Column(elem_classes=["danger-zone"]) as danger_zone_section:
+                    gr.HTML(
+                        '<div class="danger-zone-title">⚠️ Zone de danger (RGPD)</div>'
+                        '<div class="danger-zone-desc">La suppression de votre compte efface définitivement toutes vos conversations et données associées. Conformément à l\'Art. 7-3 du RGPD, le retrait de votre consentement s\'exerce par cette suppression.</div>'
+                    )
+                    btn_start_delete_account = gr.Button("Supprimer mon compte", variant="stop", size="sm")
+
+                    with gr.Column(visible=False, elem_classes=["delete-confirm-box"]) as delete_confirm_section:
+                        gr.Markdown("⚠️ **Attention :** Cette action est irréversible. Pour confirmer la suppression définitive de votre compte, saisissez votre mot de passe.")
+                        delete_password_input = gr.Textbox(label="Mot de passe de confirmation *", type="password", placeholder="••••••••")
+                        with gr.Row():
+                            btn_confirm_delete_account = gr.Button("Confirmer la suppression définitive", variant="stop")
+                            btn_cancel_delete_account = gr.Button("Annuler", variant="secondary")
+
                 with gr.Row(elem_classes=["profile-btn-row"]):
                     edit_profile_button = gr.Button("Modifier le profil", variant="primary")
                     disconnect_button = gr.Button("Déconnexion", variant="stop")
@@ -870,6 +1073,11 @@ def build_app():
                 gr.Markdown(load_markdown("conditions-generales-utilisation.md"))
                 btn_back_3 = gr.Button("Retour")
 
+            with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_registry_page:
+                gr.Markdown(load_markdown("registre-traitements.md"))
+                btn_back_4 = gr.Button("Retour")
+
+            # --- Page de Conversation ---
             with gr.Column(visible=False, elem_id="conv-page") as conversation_page:
                 with gr.Column(elem_id="conv-sidebar"):
                     with gr.Row(elem_classes=["sidebar-header"]):
@@ -948,6 +1156,18 @@ def build_app():
                         <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions generales d'utilisation</a>
                     </div>
                 </div>
+                <div style='line-height: 1.8; color: #1f2937;'>
+                    <strong>Aide</strong><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
+                </div>
+                <div style='line-height: 1.8; color: #1f2937;'>
+                    <strong>Légal</strong><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-registry').click(); return false;">Registre des traitements (Art. 30)</a>
+                </div>
+                </div>
                 """, scale=3)
                 system_status_box = gr.HTML(_status_badges_html(), scale=1)
             
@@ -957,33 +1177,37 @@ def build_app():
             btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
             btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
+            btn_show_registry = gr.Button(elem_id="btn-show-registry", elem_classes=["hidden-btn"])
 
         # --- Callbacks ---
 
         def go_to_page(page_name, session):
-            s_in = s_up = prof = leg_m = leg_p = leg_c = doc = conv = gr.update(visible=False)
+            s_in = s_up = prof = leg_m = leg_p = leg_c = leg_r = doc = conv = gr.update(visible=False)
             if page_name == "mentions": leg_m = gr.update(visible=True)
             elif page_name == "privacy": leg_p = gr.update(visible=True)
             elif page_name == "cgu": leg_c = gr.update(visible=True)
+            elif page_name == "registry": leg_r = gr.update(visible=True)
             elif page_name == "doc": doc = gr.update(visible=True)
             elif page_name == "home":
                 if session is None: s_in = gr.update(visible=True)
                 else: conv = gr.update(visible=True)
             elif page_name == "profile":
                 if session is not None: prof = gr.update(visible=True)
-            return s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv
 
-        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, doc_page, conversation_page]
+        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, legal_registry_page, doc_page, conversation_page]
         
         btn_go_home.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_show_doc.click(lambda s: go_to_page("doc", s), inputs=[session_user], outputs=page_outputs)
         btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
         btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
         btn_show_cgu.click(lambda s: go_to_page("cgu", s), inputs=[session_user], outputs=page_outputs)
+        btn_show_registry.click(lambda s: go_to_page("registry", s), inputs=[session_user], outputs=page_outputs)
         
         btn_back_1.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_2.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_3.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_4.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_doc.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_to_conv.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
@@ -1015,15 +1239,17 @@ def build_app():
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, conv_map = _build_conv_choices(conversations)
             
-            header_user_name_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{html.escape(user.full_name)}</div>'
-            welcome_html = _welcome_banner_html(user)
-            status_html = _status_badges_html()
+            header_user_name_str = _header_user_html(user)
+            try:
+                stats = conv_storage.get_user_activity_stats(user.nom_util)
+            except Exception:
+                stats = {}
             
             return (
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
-                gr.update(visible=True), "", _profile_card_md(user), "",
+                gr.update(visible=True), "", _profile_card_md(user, stats), "",
                 gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True),
-                gr.update(value="", visible=False), gr.update(value=status_html), gr.update(visible=False), "", gr.update(visible=False, value=None)
+                gr.update(value="", visible=False), gr.update(value=_status_badges_html()), gr.update(visible=False), "", gr.update(visible=False, value=None)
             )
 
         signin_button.click(
@@ -1037,10 +1263,25 @@ def build_app():
             ]
         )
 
-        go_to_profile_btn.click(lambda s: go_to_page("profile", s), inputs=[session_user], outputs=page_outputs)
+        def go_to_profile_view(user):
+            s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv = go_to_page("profile", user)
+            if user is None:
+                return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, gr.update()
+            try:
+                fresh_stats = conv_storage.get_user_activity_stats(user.nom_util)
+            except Exception:
+                fresh_stats = {}
+            card_html = _profile_card_html(user, fresh_stats)
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, card_html
 
-        def do_sign_up(first_name, last_name, password, confirm):
-            result = auth_service.register(password, confirm, first_name, last_name)
+        go_to_profile_btn.click(
+            go_to_profile_view,
+            inputs=[session_user],
+            outputs=page_outputs + [profile_info],
+        )
+
+        def do_sign_up(first_name, last_name, password, confirm, rgpd_consent):
+            result = auth_service.register(password, confirm, first_name, last_name, rgpd_consent=rgpd_consent)
             if not result.ok:
                 return (
                     gr.update(visible=True),
@@ -1062,17 +1303,18 @@ def build_app():
                 signup_last_name,
                 signup_password,
                 signup_confirm,
+                signup_rgpd,
             ],
             outputs=[signup_page, signin_page, signup_status, signin_status],
         )
 
         def show_signup():
-            return gr.update(visible=False), gr.update(visible=True), ""
+            return gr.update(visible=False), gr.update(visible=True), "", False
 
         def show_signin():
             return gr.update(visible=False), gr.update(visible=True), ""
 
-        go_to_signup.click(show_signup, outputs=[signin_page, signup_page, signup_status])
+        go_to_signup.click(show_signup, outputs=[signin_page, signup_page, signup_status, signup_rgpd])
         go_to_signin.click(show_signin, outputs=[signup_page, signin_page, signin_status])
 
         def do_disconnect():
@@ -1120,15 +1362,23 @@ def build_app():
                 )
             result = auth_service.update_profile(user, first_name, last_name)
             if not result.ok:
+                try:
+                    stats = conv_storage.get_user_activity_stats(user.nom_util)
+                except Exception:
+                    stats = {}
                 return (
-                    user, _status_html(result.message, ok=False), _profile_card_md(user),
+                    user, _status_html(result.message, ok=False), _profile_card_md(user, stats),
                     gr.update(visible=True, open=True), gr.update(visible=False), gr.update()
                 )
-            updated_user = result.user
+            updated_user = result.user or user
             gr.Info(result.message)
-            header_str = f'<div style="font-weight: 500; font-size: 14px; color: #374151;">{html.escape(updated_user.full_name)}</div>'
+            header_str = _header_user_html(updated_user)
+            try:
+                stats = conv_storage.get_user_activity_stats(updated_user.nom_util)
+            except Exception:
+                stats = {}
             return (
-                updated_user, _status_html(result.message, ok=True), _profile_card_md(updated_user),
+                updated_user, _status_html(result.message, ok=True), _profile_card_md(updated_user, stats),
                 gr.update(visible=False, open=False), gr.update(visible=True), header_str
             )
 
@@ -1136,6 +1386,72 @@ def build_app():
             do_save_profile,
             inputs=[session_user, edit_first_name, edit_last_name],
             outputs=[session_user, profile_status, profile_info, profile_edit_form, edit_profile_button, header_user_name]
+        )
+
+        # --- Secure Password Change (R2) ---
+        def do_change_password(user, current_p, new_p, confirm_p):
+            if user is None:
+                gr.Warning("Session expirée, veuillez vous reconnecter.")
+                return user, gr.update(), gr.update(), gr.update()
+            result = auth_service.change_password(user, current_p, new_p, confirm_p)
+            if not result.ok:
+                gr.Warning(result.message)
+                return user, gr.update(), gr.update(), gr.update()
+            gr.Info(result.message)
+            updated_user = result.user or user
+            return updated_user, "", "", ""
+
+        btn_submit_pwd.click(
+            do_change_password,
+            inputs=[session_user, current_pwd_input, new_pwd_input, confirm_pwd_input],
+            outputs=[session_user, current_pwd_input, new_pwd_input, confirm_pwd_input],
+        )
+
+        # --- GDPR Account Deletion (R6) ---
+        btn_start_delete_account.click(
+            lambda: (gr.update(visible=True), gr.update(visible=False), ""),
+            outputs=[delete_confirm_section, btn_start_delete_account, delete_password_input],
+        )
+        btn_cancel_delete_account.click(
+            lambda: (gr.update(visible=False), gr.update(visible=True), ""),
+            outputs=[delete_confirm_section, btn_start_delete_account, delete_password_input],
+        )
+
+        def do_delete_account(user, password):
+            if user is None:
+                gr.Warning("Session expirée ou invalide.")
+                return (
+                    user, gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), "",
+                    gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update()
+                )
+            result = auth_service.delete_account(user, password)
+            if not result.ok:
+                gr.Warning(result.message)
+                return (
+                    user, gr.update(), gr.update(), gr.update(),
+                    gr.update(visible=True), gr.update(visible=False), "",
+                    gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update()
+                )
+            gr.Info("Votre compte et toutes vos données ont été définitivement supprimés.")
+            return (
+                None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
+                gr.update(visible=False), gr.update(visible=True), "",
+                [], gr.update(choices=[]), {}, None,
+                "", gr.update(visible=False)
+            )
+
+        btn_confirm_delete_account.click(
+            do_delete_account,
+            inputs=[session_user, delete_password_input],
+            outputs=[
+                session_user, signin_page, profile_page, conversation_page,
+                delete_confirm_section, btn_start_delete_account, delete_password_input,
+                chatbot, conv_radio, conv_id_map, current_conv_id,
+                header_user_name, header_profile_container
+            ],
         )
         # -------------------- Conversation: Core Chat Logic -------------------
 

@@ -15,7 +15,7 @@ class CoreTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 core.validate_read_only_sql(sql)
 
-    @patch("NaturSQL.service.core.get_connection")
+    @patch("NaturSQL.service.core.get_query_connection")
     def test_database_schema_formats_columns(self, get_connection):
         cursor = get_connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = [
@@ -25,7 +25,7 @@ class CoreTests(unittest.TestCase):
         schema = core.database_schema()
         self.assertEqual(schema, "TABLE details: nom_ens varchar, type_seance varchar")
 
-    @patch("NaturSQL.service.core.get_connection")
+    @patch("NaturSQL.service.core.get_query_connection")
     def test_ask_database_generates_and_executes_sql(self, get_connection):
         cursor = get_connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = [{"count": 2}]

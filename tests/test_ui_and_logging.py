@@ -13,6 +13,7 @@ class UiAndLoggingTests(unittest.TestCase):
 
     def test_load_markdown_existing_and_missing_file(self):
         self.assertIn("Mentions", load_markdown("mentions-legales.md"))
+        self.assertIn("Registre", load_markdown("registre-traitements.md"))
         self.assertIn("introuvable", load_markdown("does-not-exist.md"))
 
     def test_application_logger_namespace(self):
@@ -40,28 +41,28 @@ class UiAndLoggingTests(unittest.TestCase):
         user = User(prenom="Jean", nom="Dupont", mdp="hash")
         html = _profile_card_html(user)
         self.assertIn("profile-header", html)
-        self.assertIn("profile-avatar", html)
-        self.assertIn("JD", html)
+        self.assertNotIn("profile-avatar", html)
         self.assertIn("profile-name", html)
         self.assertIn("Jean Dupont", html)
         self.assertIn("profile-id", html)
         self.assertIn("jean.dupont", html)
         self.assertIn("profile-role", html)
-        self.assertIn("Utilisateur Standard", html)
+        self.assertIn("Enseignant", html)
+        self.assertIn("badge-prof", html)
+        self.assertIn("profile-badge", html)
+        self.assertIn("profile-stats-grid", html)
 
         # Edge cases: stripped spaces, single name fallback
         user_spaces = User(prenom="  Alice  ", nom="  Smith  ", mdp="hash")
         html_spaces = _profile_card_html(user_spaces)
         self.assertIn("Alice Smith", html_spaces)
         self.assertIn("alice.smith", html_spaces)
-        self.assertIn("AS", html_spaces)
 
         # Accents and non-ASCII characters
         user_accents = User(prenom="Éléonore", nom="François", mdp="hash")
         html_accents = _profile_card_html(user_accents)
         self.assertIn("Éléonore François", html_accents)
         self.assertIn("éléonore.françois", html_accents)
-        self.assertIn("ÉF", html_accents)
 
         # Multi-word names with internal spaces
         user_multi = User(prenom="Jean  Paul", nom="De  La  Tour", mdp="hash")
@@ -76,6 +77,84 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertNotIn("<script>", html_xss)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html_xss)
 
+        # RGPD Consent badge
+        from datetime import datetime
+        user_rgpd = User(
+            prenom="Noa",
+            nom="Gaillard",
+            mdp="hash",
+            rgpd_accepted_at=datetime(2026, 10, 13, 12, 0),
+        )
+        html_rgpd = _profile_card_html(user_rgpd)
+        self.assertIn("profile-rgpd-badge", html_rgpd)
+        self.assertIn("Consentement RGPD", html_rgpd)
+        self.assertIn("13/10/2026", html_rgpd)
+
+    def test_profile_card_html_roles(self):
+        from NaturSQL.ui_gradio import _profile_card_html
+        from NaturSQL.storage.users import User
+
+        # PROF role
+        user_prof = User(prenom="Marie", nom="Curie", mdp="hash", role="PROF")
+        html_prof = _profile_card_html(user_prof)
+        self.assertIn("Enseignant", html_prof)
+        self.assertIn("badge-prof", html_prof)
+
+        # SECRETAIRE role
+        user_sec = User(prenom="Claire", nom="Dubois", mdp="hash", role="SECRETAIRE")
+        html_sec = _profile_card_html(user_sec)
+        self.assertIn("Secrétaire", html_sec)
+        self.assertIn("badge-secretaire", html_sec)
+
+        # ADMIN role
+        user_admin = User(prenom="Alain", nom="Turing", mdp="hash", role="ADMIN")
+        html_admin = _profile_card_html(user_admin)
+        self.assertIn("Administrateur", html_admin)
+        self.assertIn("badge-admin", html_admin)
+
+        # Unknown / default role fallback
+        user_unknown = User(prenom="Luc", nom="Inconnu", mdp="hash", role="OTHER")
+        html_unknown = _profile_card_html(user_unknown)
+        self.assertIn("Enseignant", html_unknown)
+        self.assertIn("badge-prof", html_unknown)
+
+    def test_profile_and_header_do_not_render_avatars(self):
+        from NaturSQL.ui_gradio import _profile_card_html, _header_user_html
+        from NaturSQL.storage.users import User
+
+        for avatar in (None, "https://example.com/avatar.png", '" onerror="alert(1)'):
+            user = User(prenom="Arthur", nom="Rimbaud", mdp="hash", avatar=avatar)
+            for rendered in (_profile_card_html(user, stats={}), _header_user_html(user)):
+                self.assertIn("Arthur Rimbaud", rendered)
+                self.assertNotIn("<img", rendered)
+                self.assertNotIn("profile-avatar", rendered)
+                if avatar:
+                    self.assertNotIn(avatar, rendered)
+
+    def test_profile_card_html_activity_stats(self):
+        from NaturSQL.ui_gradio import _profile_card_html
+        from NaturSQL.storage.users import User
+        from datetime import datetime
+
+        user = User(
+            prenom="Sophie",
+            nom="Germain",
+            mdp="hash",
+            role="PROF",
+            created_at=datetime(2026, 10, 12, 10, 0),
+        )
+        stats = {"conversations": 7, "questions": 42}
+        html_stats = _profile_card_html(user, stats=stats)
+
+        self.assertIn("profile-stats-grid", html_stats)
+        self.assertIn("profile-stat-box", html_stats)
+        self.assertIn("profile-stat-value", html_stats)
+        self.assertIn("7", html_stats)
+        self.assertIn("Conversations", html_stats)
+        self.assertIn("42", html_stats)
+        self.assertIn("Questions posées", html_stats)
+        self.assertIn("12 oct. 2026", html_stats)
+        self.assertIn("Membre depuis", html_stats)
 
     @patch("NaturSQL.ui_gradio.AuthService")
     @patch("NaturSQL.ui_gradio.ConversationStorage")
@@ -90,6 +169,23 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn(".profile-accordion", custom_css)
         self.assertIn(".profile-btn-row", custom_css)
 
+        # CSS additions for V2 / Milestone 3
+        self.assertNotIn(".toast-wrap { display: none !important; }", custom_css)
+        self.assertIn(".profile-badge", custom_css)
+        self.assertIn(".badge-prof", custom_css)
+        self.assertIn(".badge-secretaire", custom_css)
+        self.assertIn(".badge-admin", custom_css)
+        self.assertIn(".profile-stats-grid", custom_css)
+        self.assertIn(".profile-stat-box", custom_css)
+        self.assertIn(".profile-stat-value", custom_css)
+        self.assertIn(".profile-stat-label", custom_css)
+        self.assertNotIn(".profile-avatar", custom_css)
+        self.assertIn(".danger-zone", custom_css)
+        self.assertIn(".danger-zone-title", custom_css)
+        self.assertIn(".danger-zone-desc", custom_css)
+        self.assertIn(".delete-confirm-box", custom_css)
+        self.assertIn(".profile-rgpd-badge", custom_css)
+
         app = build_app()
         # Find accordion block in app components
         accordions = [
@@ -99,6 +195,12 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertTrue(len(accordions) >= 1)
         self.assertEqual(accordions[0].label, "Modifier mes informations")
 
+        # Verify password change accordion and avatar accordion exist
+        accordion_labels = [a.label for a in accordions]
+        self.assertIn("Changer de mot de passe", accordion_labels)
+        self.assertNotIn("Changer d'avatar", accordion_labels)
+        self.assertNotIn("Gestion de mes données personnelles (RGPD - Art. 20)", accordion_labels)
+
         # Verify textboxes inside profile edit are single-line (lines=1)
         edit_textboxes = [
             comp for comp in app.blocks.values()
@@ -107,6 +209,35 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertTrue(len(edit_textboxes) >= 2)
         for tb in edit_textboxes:
             self.assertEqual(tb.lines, 1)
+
+        # Verify password textboxes exist with password type
+        pwd_textboxes = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Textbox) and comp.label == "Mot de passe actuel *"
+        ]
+        self.assertTrue(len(pwd_textboxes) >= 1)
+        self.assertEqual(pwd_textboxes[0].type, "password")
+
+        # Verify danger zone buttons exist
+        stop_buttons = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Button) and comp.value == "Supprimer mon compte"
+        ]
+        self.assertTrue(len(stop_buttons) >= 1)
+
+        # Personal data export is no longer shown in the profile
+        download_buttons = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.DownloadButton)
+        ]
+        self.assertEqual(download_buttons, [])
+
+        # Verify RGPD Checkbox exists
+        rgpd_checkboxes = [
+            comp for comp in app.blocks.values()
+            if isinstance(comp, gr.Checkbox) and getattr(comp, "elem_id", None) == "signup-rgpd-cb"
+        ]
+        self.assertTrue(len(rgpd_checkboxes) >= 1)
 
     def test_v2_home_helpers(self):
         from NaturSQL.ui_gradio import (
@@ -119,16 +250,13 @@ class UiAndLoggingTests(unittest.TestCase):
         from NaturSQL.storage.users import User
         from datetime import datetime, timedelta
 
-        # Welcome banner test (must contain greeting and no emojis)
         user = User(prenom="Alice", nom="Martin", mdp="hash")
         welcome = _welcome_banner_html(user)
         self.assertIn("Bonjour Alice, que souhaitez-vous analyser", welcome)
         self.assertIn("Conseils de formulation", welcome)
-        # Ensure no emojis in welcome
         self.assertNotIn("🟢", welcome)
         self.assertNotIn("💡", welcome)
 
-        # Status badges test (must contain MariaDB and Ollama without emojis)
         with patch("NaturSQL.ui_gradio.get_system_status", return_value={"mariadb": True, "ollama": False}):
             badges = _status_badges_html()
             self.assertIn("Base de donnees (MariaDB) : En ligne", badges)
@@ -137,7 +265,6 @@ class UiAndLoggingTests(unittest.TestCase):
             self.assertIn("status-dot-offline", badges)
             self.assertNotIn("🟢", badges)
 
-        # CSV export test
         results = [{"nom_ens": "Dupont", "total_h": 42}]
         csv_path = create_results_csv(results)
         self.assertIsNotNone(csv_path)
@@ -147,13 +274,11 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn("Dupont;42", content)
         self.assertIsNone(create_results_csv([]))
 
-        # Period classification test
         now = datetime.now()
         self.assertEqual(get_conv_period(now), "Aujourd'hui")
         self.assertEqual(get_conv_period(now - timedelta(days=2)), "7 derniers jours")
         self.assertEqual(get_conv_period(now - timedelta(days=15)), "Plus ancien")
 
-        # Simplified vs Expert mode response formatting
         sql = "SELECT * FROM test"
         resp_expert = _format_bot_response(sql, results, simplified=False)
         self.assertIn("```sql", resp_expert)
