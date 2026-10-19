@@ -189,3 +189,26 @@ class ConversationStorage:
         }
 
     get_user_stats = get_user_activity_stats
+
+    def get_full_user_history(self, nom_util: str) -> list[dict]:
+        """Retrieve all conversations and their ordered messages for RGPD data export."""
+        convs = self.list_conversations(nom_util)
+        history = []
+        for c in convs:
+            msgs = self.get_messages(c.id)
+            history.append({
+                "conversation_id": c.id,
+                "title": c.title,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "messages": [
+                    {
+                        "id": m.id,
+                        "role": m.role,
+                        "content": m.content,
+                        "sql_generated": m.sql_generated,
+                        "created_at": m.created_at.isoformat() if m.created_at else None,
+                    }
+                    for m in msgs
+                ],
+            })
+        return history

@@ -10068,6 +10068,7 @@ CREATE TABLE `compte` (
   `role` enum('PROF','SECRETAIRE','ADMIN') NOT NULL DEFAULT 'PROF',
   `avatar` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `rgpd_accepted_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`prenom`, `nom`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

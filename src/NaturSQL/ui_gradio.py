@@ -7,6 +7,8 @@ import base64
 import html
 import re
 import gradio as gr
+import json
+import tempfile
 from datetime import datetime, date
 from typing import Optional, Any
 from .service.auth import AuthService, get_role_label, UserRole, ROLE_LABELS
@@ -16,6 +18,7 @@ from .service.core import ask_database
 
 def load_markdown(filename: str) -> str:
     candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "docs", "legal", filename),
         os.path.join(os.path.dirname(__file__), "docs", "legal", filename),
         os.path.join(os.path.dirname(__file__), "docs", filename),
         os.path.join(os.path.dirname(__file__), "..", "..", filename),
@@ -180,6 +183,18 @@ html, body {
     background-color: #fef2f2 !important;
     border-color: #fecaca !important;
     color: #b91c1c !important;
+}
+.profile-rgpd-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+    color: #4b5563 !important;
+    background: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 9999px !important;
+    padding: 2px 10px !important;
+    margin-top: 4px !important;
 }
 .profile-stats-grid {
     display: grid !important;
@@ -659,6 +674,19 @@ def _profile_card_html(user, stats=None) -> str:
         '    </div>'
     )
 
+    # RGPD consent date
+    rgpd_at = getattr(user, "rgpd_accepted_at", None)
+    if rgpd_at:
+        if isinstance(rgpd_at, str):
+            try:
+                rgpd_at = datetime.fromisoformat(rgpd_at)
+            except Exception:
+                pass
+        rgpd_str = rgpd_at.strftime("%d/%m/%Y") if hasattr(rgpd_at, "strftime") else str(rgpd_at)
+        rgpd_badge = f'<div class="profile-rgpd-badge">🛡️ Consentement RGPD : {rgpd_str}</div>'
+    else:
+        rgpd_badge = '<div class="profile-rgpd-badge">🛡️ Consentement RGPD : Actif</div>'
+
     return (
         '<div class="profile-header">\n'
         f'    {avatar_html}\n'
@@ -666,6 +694,7 @@ def _profile_card_html(user, stats=None) -> str:
         f'    <div class="profile-id">{escaped_id}</div>\n'
         '    <div class="profile-role">\n'
         f'        {badge_html}\n'
+        f'        {rgpd_badge}\n'
         '    </div>\n'
         f'{stats_html}\n'
         '</div>'
@@ -722,6 +751,13 @@ def build_app():
                     signup_password = gr.Textbox(label="Mot de passe *", type="password", placeholder="Mot de passe", info="8 caractères min., 1 majuscule, 1 chiffre, 1 caractère spécial.")
                     signup_confirm = gr.Textbox(label="Confirmer le mot de passe *", type="password", placeholder="Confirmer le mot de passe")
                     
+                    signup_rgpd = gr.Checkbox(
+                        label="J'ai lu et j'accepte la politique de confidentialité et les CGU *",
+                        value=False,
+                        elem_id="signup-rgpd-cb"
+                    )
+                    gr.HTML('<div style="font-size:11px;color:#6b7280;margin:-8px 0 12px 2px;">En cochant cette case, vous consentez au traitement de vos données conformément aux <a href="#" onclick="document.getElementById(\'btn-show-privacy\').click(); return false;" style="text-decoration:underline;color:#2563eb;">politique de confidentialité</a> et <a href="#" onclick="document.getElementById(\'btn-show-cgu\').click(); return false;" style="text-decoration:underline;color:#2563eb;">CGU</a> de NaturSQL.</div>')
+
                     signup_status = gr.HTML()
                     signup_button = gr.Button("S'inscrire", variant="primary")
                     
@@ -768,10 +804,14 @@ def build_app():
                     confirm_pwd_input = gr.Textbox(label="Confirmer le nouveau mot de passe *", type="password", placeholder="••••••••")
                     btn_submit_pwd = gr.Button("Mettre à jour le mot de passe", variant="primary")
 
+                with gr.Accordion("Gestion de mes données personnelles (RGPD - Art. 20)", open=False, elem_classes=["profile-accordion"]) as rgpd_accordion:
+                    gr.HTML('<div style="font-size:12px;color:#4b5563;margin-bottom:8px;line-height:1.5;">Conformément à l\'Article 20 du RGPD (Droit à la portabilité), vous pouvez exporter et télécharger l\'ensemble de vos informations de compte ainsi que l\'historique intégral de vos conversations au format JSON structuré.</div>')
+                    export_rgpd_download = gr.DownloadButton("📥 Télécharger mes données personnelles (JSON)", variant="secondary", size="sm")
+
                 with gr.Column(elem_classes=["danger-zone"]) as danger_zone_section:
                     gr.HTML(
                         '<div class="danger-zone-title">⚠️ Zone de danger (RGPD)</div>'
-                        '<div class="danger-zone-desc">La suppression de votre compte efface définitivement toutes vos conversations et données associées.</div>'
+                        '<div class="danger-zone-desc">La suppression de votre compte efface définitivement toutes vos conversations et données associées. Conformément à l\'Art. 7-3 du RGPD, le retrait de votre consentement s\'exerce par cette suppression.</div>'
                     )
                     btn_start_delete_account = gr.Button("Supprimer mon compte", variant="stop", size="sm")
 
@@ -801,6 +841,10 @@ def build_app():
             with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_cgu_page:
                 gr.Markdown(load_markdown("conditions-generales-utilisation.md"))
                 btn_back_3 = gr.Button("Retour")
+
+            with gr.Column(visible=False, elem_classes=["profile-card"]) as legal_registry_page:
+                gr.Markdown(load_markdown("registre-traitements.md"))
+                btn_back_4 = gr.Button("Retour")
 
             # --- Page de Conversation ---
             with gr.Column(visible=False, elem_id="conv-page") as conversation_page:
@@ -855,7 +899,8 @@ def build_app():
                     <strong>Légal</strong><br>
                     <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
                     <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a><br>
+                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-registry').click(); return false;">Registre des traitements (Art. 30)</a>
                 </div>
             </div>
             """)
@@ -866,33 +911,37 @@ def build_app():
             btn_show_mentions = gr.Button(elem_id="btn-show-mentions", elem_classes=["hidden-btn"])
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
             btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
+            btn_show_registry = gr.Button(elem_id="btn-show-registry", elem_classes=["hidden-btn"])
 
         # --- Callbacks ---
 
         def go_to_page(page_name, session):
-            s_in = s_up = prof = leg_m = leg_p = leg_c = doc = conv = gr.update(visible=False)
+            s_in = s_up = prof = leg_m = leg_p = leg_c = leg_r = doc = conv = gr.update(visible=False)
             if page_name == "mentions": leg_m = gr.update(visible=True)
             elif page_name == "privacy": leg_p = gr.update(visible=True)
             elif page_name == "cgu": leg_c = gr.update(visible=True)
+            elif page_name == "registry": leg_r = gr.update(visible=True)
             elif page_name == "doc": doc = gr.update(visible=True)
             elif page_name == "home":
                 if session is None: s_in = gr.update(visible=True)
                 else: conv = gr.update(visible=True)
             elif page_name == "profile":
                 if session is not None: prof = gr.update(visible=True)
-            return s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv
 
-        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, doc_page, conversation_page]
+        page_outputs = [signin_page, signup_page, profile_page, legal_mentions_page, legal_privacy_page, legal_cgu_page, legal_registry_page, doc_page, conversation_page]
         
         btn_go_home.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_show_doc.click(lambda s: go_to_page("doc", s), inputs=[session_user], outputs=page_outputs)
         btn_show_mentions.click(lambda s: go_to_page("mentions", s), inputs=[session_user], outputs=page_outputs)
         btn_show_privacy.click(lambda s: go_to_page("privacy", s), inputs=[session_user], outputs=page_outputs)
         btn_show_cgu.click(lambda s: go_to_page("cgu", s), inputs=[session_user], outputs=page_outputs)
+        btn_show_registry.click(lambda s: go_to_page("registry", s), inputs=[session_user], outputs=page_outputs)
         
         btn_back_1.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_2.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_3.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
+        btn_back_4.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_doc.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
         btn_back_to_conv.click(lambda s: go_to_page("home", s), inputs=[session_user], outputs=page_outputs)
 
@@ -946,16 +995,16 @@ def build_app():
         )
 
         def go_to_profile_view(user):
-            s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv = go_to_page("profile", user)
+            s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv = go_to_page("profile", user)
             if user is None:
-                return s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv, gr.update(), gr.update()
+                return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, gr.update(), gr.update()
             try:
                 fresh_stats = conv_storage.get_user_activity_stats(user.nom_util)
             except Exception:
                 fresh_stats = {}
             card_html = _profile_card_html(user, fresh_stats)
             current_avatar = getattr(user, "avatar", None) or ""
-            return s_in, s_up, prof, leg_m, leg_p, leg_c, doc, conv, card_html, current_avatar
+            return s_in, s_up, prof, leg_m, leg_p, leg_c, leg_r, doc, conv, card_html, current_avatar
 
         go_to_profile_btn.click(
             go_to_profile_view,
@@ -963,8 +1012,8 @@ def build_app():
             outputs=page_outputs + [profile_info, avatar_input],
         )
 
-        def do_sign_up(first_name, last_name, password, confirm):
-            result = auth_service.register(password, confirm, first_name, last_name)
+        def do_sign_up(first_name, last_name, password, confirm, rgpd_consent):
+            result = auth_service.register(password, confirm, first_name, last_name, rgpd_consent=rgpd_consent)
             if not result.ok:
                 return (
                     gr.update(visible=True),
@@ -986,17 +1035,18 @@ def build_app():
                 signup_last_name,
                 signup_password,
                 signup_confirm,
+                signup_rgpd,
             ],
             outputs=[signup_page, signin_page, signup_status, signin_status],
         )
 
         def show_signup():
-            return gr.update(visible=False), gr.update(visible=True), ""
+            return gr.update(visible=False), gr.update(visible=True), "", False
 
         def show_signin():
             return gr.update(visible=False), gr.update(visible=True), ""
 
-        go_to_signup.click(show_signup, outputs=[signin_page, signup_page, signup_status])
+        go_to_signup.click(show_signup, outputs=[signin_page, signup_page, signup_status, signup_rgpd])
         go_to_signin.click(show_signin, outputs=[signup_page, signin_page, signin_status])
 
         def do_disconnect():
@@ -1166,6 +1216,26 @@ def build_app():
                 header_user_name, header_profile_container
             ],
         )
+        # --- RGPD Data Export (Art. 20) ---
+        def do_export_user_data(user):
+            if not user:
+                gr.Warning("Session expirée, veuillez vous reconnecter.")
+                return None
+            data = auth_service.export_user_data(user)
+            temp_dir = tempfile.gettempdir()
+            filename = f"natursql_export_{user.nom_util}.json"
+            filepath = os.path.join(temp_dir, filename)
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            gr.Info("Données personnelles exportées avec succès !")
+            return filepath
+
+        export_rgpd_download.click(
+            do_export_user_data,
+            inputs=[session_user],
+            outputs=[export_rgpd_download],
+        )
+
         # -------------------- Conversation: Core Chat Logic -------------------
 
         def _format_bot_response(sql: str | None, results: list[dict] | None) -> str:

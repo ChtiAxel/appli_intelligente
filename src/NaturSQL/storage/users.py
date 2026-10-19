@@ -24,6 +24,7 @@ class User:
     role: str = "PROF"
     created_at: Optional[datetime] = None
     avatar: Optional[str] = None
+    rgpd_accepted_at: Optional[datetime] = None
 
     @property
     def nom_util(self) -> str:
@@ -31,6 +32,11 @@ class User:
     @property
     def full_name(self) -> str:
         return f"{self.prenom} {self.nom}".strip()
+    @property
+    def rgpd_accepted_at_display(self) -> str:
+        if not self.rgpd_accepted_at:
+            return "Non consigné"
+        return self.rgpd_accepted_at.strftime("%d/%m/%Y à %H:%M")
 
 
 class UserAlreadyExistsError(Exception):
@@ -52,6 +58,7 @@ class UserStorage:
                     role ENUM('PROF', 'SECRETAIRE', 'ADMIN') NOT NULL DEFAULT 'PROF',
                     avatar VARCHAR(255) DEFAULT NULL,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    rgpd_accepted_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (prenom, nom)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                 """
@@ -62,7 +69,8 @@ class UserStorage:
                     ALTER TABLE compte
                     ADD COLUMN IF NOT EXISTS role ENUM('PROF', 'SECRETAIRE', 'ADMIN') NOT NULL DEFAULT 'PROF',
                     ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT NULL,
-                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS rgpd_accepted_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
                     """
                 )
             except Exception:
@@ -74,7 +82,7 @@ class UserStorage:
         with db.transaction() as cursor:
             cursor.execute(
                 """
-                SELECT prenom, nom, mdp, role, created_at, avatar
+                SELECT prenom, nom, mdp, role, created_at, avatar, rgpd_accepted_at
                 FROM compte
                 WHERE prenom = %s AND nom = %s
                 """,
@@ -89,7 +97,7 @@ class UserStorage:
         with db.transaction() as cursor:
             cursor.execute(
                 """
-                SELECT prenom, nom, mdp, role, created_at, avatar
+                SELECT prenom, nom, mdp, role, created_at, avatar, rgpd_accepted_at
                 FROM compte
                 WHERE prenom = %s AND nom = %s
                 """,
@@ -112,18 +120,34 @@ class UserStorage:
 
     # -- registration -------------------------------------------------
 
-    def create_user(self, password: str, first_name: str, last_name: str, role: str = "PROF") -> User:
-        """Create an account containing first name, last name, hash, and role."""
+    def create_user(
+        self,
+        password: str,
+        first_name: str,
+        last_name: str,
+        role: str = "PROF",
+        rgpd_accepted: bool = True,
+    ) -> User:
+        """Create an account containing first name, last name, hash, role, and rgpd_accepted_at."""
         password_hash = generate_password_hash(password)
         with db.transaction() as cursor:
             try:
-                cursor.execute(
-                    """
-                    INSERT INTO compte (prenom, nom, mdp, role)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (first_name, last_name, password_hash, role),
-                )
+                if rgpd_accepted:
+                    cursor.execute(
+                        """
+                        INSERT INTO compte (prenom, nom, mdp, role, rgpd_accepted_at)
+                        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP())
+                        """,
+                        (first_name, last_name, password_hash, role),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO compte (prenom, nom, mdp, role, rgpd_accepted_at)
+                        VALUES (%s, %s, %s, %s, NULL)
+                        """,
+                        (first_name, last_name, password_hash, role),
+                    )
             except pymysql.err.IntegrityError as exc:
                 raise UserAlreadyExistsError(f"{first_name} {last_name}") from exc
 
@@ -132,6 +156,8 @@ class UserStorage:
             nom=last_name,
             prenom=first_name,
             role=role,
+            created_at=datetime.now(),
+            rgpd_accepted_at=datetime.now() if rgpd_accepted else None,
         )
 
     # -- profile update & management ----------------------------------
@@ -216,4 +242,5 @@ class UserStorage:
             role=row.get("role") or "PROF",
             created_at=row.get("created_at"),
             avatar=row.get("avatar"),
+            rgpd_accepted_at=row.get("rgpd_accepted_at"),
         )
