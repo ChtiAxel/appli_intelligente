@@ -102,7 +102,7 @@ Une fois connecté, votre fiche profil vous présente vos informations actuelles
    - Cliquez sur le bouton vert **« Enregistrer »** pour valider les modifications.
 
 > 📷 **[Emplacement Capture d'Écran 3]**  
-> *Description : Capture de la page de profil affichant l'avatar, les informations de l'utilisateur et les boutons « Modifier le profil » et « Déconnexion ».*
+> *Description : Capture de la page de profil affichant les informations de l'utilisateur et les boutons « Modifier le profil » et « Déconnexion ».*
 
 ---
 

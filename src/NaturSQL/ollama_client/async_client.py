@@ -25,10 +25,12 @@ class AsyncOllamaClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None,
         timeout_s: Optional[float] = None,
+        keep_alive: Optional[str] = None,
     ) -> None:
         self.base_url = (base_url or config.OLLAMA_BASE_URL).rstrip("/")
         self.model = model or config.OLLAMA_MODEL
         self.timeout_s = timeout_s if timeout_s is not None else config.OLLAMA_TIMEOUT_SECONDS
+        self.keep_alive = keep_alive if keep_alive is not None else config.OLLAMA_KEEP_ALIVE
 
     async def generate(
         self,
@@ -36,9 +38,14 @@ class AsyncOllamaClient:
         *,
         system: Optional[str] = None,
         options: Optional[Mapping[str, Any]] = None,
+        think: Optional[bool] = None,
     ) -> str:
         """Envoie un prompt (stream=false) et retourne le texte généré."""
         body: dict[str, Any] = {"model": self.model, "prompt": prompt, "stream": False}
+        if self.keep_alive is not None:
+            body["keep_alive"] = self.keep_alive
+        if think is not None:
+            body["think"] = think
         if system is not None:
             body["system"] = system
         if options is not None:
@@ -64,4 +71,8 @@ class AsyncOllamaClient:
         text = payload.get("response") if isinstance(payload, dict) else None
         if not isinstance(text, str):
             raise OllamaResponseError(f"Réponse /api/generate inattendue : {payload!r}")
+        if payload.get("done_reason") == "length":
+            raise OllamaResponseError(
+                "La réponse de l'IA a été interrompue avant la fin du SQL. Veuillez réessayer."
+            )
         return text

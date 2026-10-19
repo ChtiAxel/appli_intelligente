@@ -116,6 +116,53 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(message.content, "Hello")
         self.assertEqual(storage.get_messages(1)[0].role, "user")
 
+    @patch("NaturSQL.storage.conversations.db.transaction")
+    def test_get_full_user_history_uses_one_query(self, transaction):
+        now = datetime.now()
+        cursor = FakeCursor(
+            [
+                {
+                    "conversation_id": 2,
+                    "conversation_title": "Recent",
+                    "conversation_created_at": now,
+                    "message_id": 3,
+                    "role": "user",
+                    "content": "Bonjour",
+                    "sql_generated": None,
+                    "message_created_at": now,
+                },
+                {
+                    "conversation_id": 2,
+                    "conversation_title": "Recent",
+                    "conversation_created_at": now,
+                    "message_id": 4,
+                    "role": "assistant",
+                    "content": "Bonjour !",
+                    "sql_generated": "SELECT 1",
+                    "message_created_at": now,
+                },
+                {
+                    "conversation_id": 1,
+                    "conversation_title": "Empty",
+                    "conversation_created_at": now,
+                    "message_id": None,
+                    "role": None,
+                    "content": None,
+                    "sql_generated": None,
+                    "message_created_at": None,
+                },
+            ]
+        )
+        transaction.side_effect = lambda: fake_transaction(cursor)
+
+        history = ConversationStorage().get_full_user_history("dupont.jean")
+
+        self.assertEqual(len(cursor.queries), 1)
+        self.assertIn("LEFT JOIN messages", cursor.queries[0][0])
+        self.assertEqual([item["conversation_id"] for item in history], [2, 1])
+        self.assertEqual(len(history[0]["messages"]), 2)
+        self.assertEqual(history[1]["messages"], [])
+
     def test_base_storage_health_check(self):
         from NaturSQL.storage.base import Storage
         self.assertTrue(Storage().health_check())

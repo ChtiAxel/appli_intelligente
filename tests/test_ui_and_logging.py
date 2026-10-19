@@ -41,8 +41,7 @@ class UiAndLoggingTests(unittest.TestCase):
         user = User(prenom="Jean", nom="Dupont", mdp="hash")
         html = _profile_card_html(user)
         self.assertIn("profile-header", html)
-        self.assertIn("profile-avatar", html)
-        self.assertIn("JD", html)
+        self.assertNotIn("profile-avatar", html)
         self.assertIn("profile-name", html)
         self.assertIn("Jean Dupont", html)
         self.assertIn("profile-id", html)
@@ -58,14 +57,12 @@ class UiAndLoggingTests(unittest.TestCase):
         html_spaces = _profile_card_html(user_spaces)
         self.assertIn("Alice Smith", html_spaces)
         self.assertIn("alice.smith", html_spaces)
-        self.assertIn("AS", html_spaces)
 
         # Accents and non-ASCII characters
         user_accents = User(prenom="Éléonore", nom="François", mdp="hash")
         html_accents = _profile_card_html(user_accents)
         self.assertIn("Éléonore François", html_accents)
         self.assertIn("éléonore.françois", html_accents)
-        self.assertIn("ÉF", html_accents)
 
         # Multi-word names with internal spaces
         user_multi = User(prenom="Jean  Paul", nom="De  La  Tour", mdp="hash")
@@ -121,29 +118,18 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn("Enseignant", html_unknown)
         self.assertIn("badge-prof", html_unknown)
 
-    def test_profile_card_html_avatar(self):
-        from NaturSQL.ui_gradio import _profile_card_html
+    def test_profile_and_header_do_not_render_avatars(self):
+        from NaturSQL.ui_gradio import _profile_card_html, _header_user_html
         from NaturSQL.storage.users import User
 
-        # Avatar is None -> fallback to initials in profile-avatar
-        user_no_avatar = User(prenom="Paul", nom="Verlaine", mdp="hash", avatar=None)
-        html_no_avatar = _profile_card_html(user_no_avatar)
-        self.assertIn("profile-avatar", html_no_avatar)
-        self.assertIn("PV", html_no_avatar)
-        self.assertNotIn("profile-avatar-img", html_no_avatar)
-
-        # Avatar present -> rendered as img.profile-avatar-img
-        avatar_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-        user_avatar = User(prenom="Arthur", nom="Rimbaud", mdp="hash", avatar=avatar_uri)
-        html_avatar = _profile_card_html(user_avatar)
-        self.assertIn("profile-avatar-img", html_avatar)
-        self.assertIn(avatar_uri, html_avatar)
-
-        # URL avatar
-        user_url = User(prenom="Victor", nom="Hugo", mdp="hash", avatar="https://example.com/hugo.png")
-        html_url = _profile_card_html(user_url)
-        self.assertIn("https://example.com/hugo.png", html_url)
-        self.assertIn("profile-avatar-img", html_url)
+        for avatar in (None, "https://example.com/avatar.png", '" onerror="alert(1)'):
+            user = User(prenom="Arthur", nom="Rimbaud", mdp="hash", avatar=avatar)
+            for rendered in (_profile_card_html(user, stats={}), _header_user_html(user)):
+                self.assertIn("Arthur Rimbaud", rendered)
+                self.assertNotIn("<img", rendered)
+                self.assertNotIn("profile-avatar", rendered)
+                if avatar:
+                    self.assertNotIn(avatar, rendered)
 
     def test_profile_card_html_activity_stats(self):
         from NaturSQL.ui_gradio import _profile_card_html
@@ -193,7 +179,7 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn(".profile-stat-box", custom_css)
         self.assertIn(".profile-stat-value", custom_css)
         self.assertIn(".profile-stat-label", custom_css)
-        self.assertIn(".profile-avatar-img", custom_css)
+        self.assertNotIn(".profile-avatar", custom_css)
         self.assertIn(".danger-zone", custom_css)
         self.assertIn(".danger-zone-title", custom_css)
         self.assertIn(".danger-zone-desc", custom_css)
@@ -212,8 +198,8 @@ class UiAndLoggingTests(unittest.TestCase):
         # Verify password change accordion and avatar accordion exist
         accordion_labels = [a.label for a in accordions]
         self.assertIn("Changer de mot de passe", accordion_labels)
-        self.assertIn("Changer d'avatar", accordion_labels)
-        self.assertIn("Gestion de mes données personnelles (RGPD - Art. 20)", accordion_labels)
+        self.assertNotIn("Changer d'avatar", accordion_labels)
+        self.assertNotIn("Gestion de mes données personnelles (RGPD - Art. 20)", accordion_labels)
 
         # Verify textboxes inside profile edit are single-line (lines=1)
         edit_textboxes = [
@@ -239,12 +225,12 @@ class UiAndLoggingTests(unittest.TestCase):
         ]
         self.assertTrue(len(stop_buttons) >= 1)
 
-        # Verify RGPD DownloadButton exists
+        # Personal data export is no longer shown in the profile
         download_buttons = [
             comp for comp in app.blocks.values()
             if isinstance(comp, gr.DownloadButton)
         ]
-        self.assertTrue(len(download_buttons) >= 1)
+        self.assertEqual(download_buttons, [])
 
         # Verify RGPD Checkbox exists
         rgpd_checkboxes = [
