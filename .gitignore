@@ -17,5 +17,13 @@ reponses_controle_noa.txt
 extract_sujet_04.py
 extract_sujet_04_v2.py
 
-# Documentation build output
+# Documentation & build outputs
 site/
+dist/
+build/
+*.egg-info/
+
+# Tests & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
