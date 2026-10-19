@@ -25,10 +25,12 @@ class AsyncOllamaClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None,
         timeout_s: Optional[float] = None,
+        keep_alive: Optional[str] = None,
     ) -> None:
         self.base_url = (base_url or config.OLLAMA_BASE_URL).rstrip("/")
         self.model = model or config.OLLAMA_MODEL
         self.timeout_s = timeout_s if timeout_s is not None else config.OLLAMA_TIMEOUT_SECONDS
+        self.keep_alive = keep_alive if keep_alive is not None else config.OLLAMA_KEEP_ALIVE
 
     async def generate(
         self,
@@ -40,6 +42,8 @@ class AsyncOllamaClient:
     ) -> str:
         """Envoie un prompt (stream=false) et retourne le texte généré."""
         body: dict[str, Any] = {"model": self.model, "prompt": prompt, "stream": False}
+        if self.keep_alive is not None:
+            body["keep_alive"] = self.keep_alive
         if think is not None:
             body["think"] = think
         if system is not None:

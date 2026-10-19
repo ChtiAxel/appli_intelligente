@@ -72,6 +72,13 @@ class ConversationStorage:
                 )
             except Exception:
                 pass
+            try:
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_conversation_created "
+                    "ON messages (conversation_id, created_at, id)"
+                )
+            except Exception:
+                pass
 
     def create_conversation(
         self, nom_util: str, title: str = "Nouvelle conversation"
@@ -192,23 +199,52 @@ class ConversationStorage:
 
     def get_full_user_history(self, nom_util: str) -> list[dict]:
         """Retrieve all conversations and their ordered messages for RGPD data export."""
-        convs = self.list_conversations(nom_util)
-        history = []
-        for c in convs:
-            msgs = self.get_messages(c.id)
-            history.append({
-                "conversation_id": c.id,
-                "title": c.title,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-                "messages": [
+        with db.transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id AS conversation_id, c.title AS conversation_title,
+                       c.created_at AS conversation_created_at,
+                       m.id AS message_id, m.role, m.content, m.sql_generated,
+                       m.created_at AS message_created_at
+                FROM conversations c
+                LEFT JOIN messages m ON m.conversation_id = c.id
+                WHERE c.nom_util = %s
+                ORDER BY c.created_at DESC, c.id DESC,
+                         m.created_at ASC, m.id ASC
+                """,
+                (nom_util,),
+            )
+            rows = cursor.fetchall()
+
+        history_by_id: dict[int, dict] = {}
+        for row in rows:
+            conversation_id = row["conversation_id"]
+            conversation = history_by_id.setdefault(
+                conversation_id,
+                {
+                    "conversation_id": conversation_id,
+                    "title": row["conversation_title"],
+                    "created_at": (
+                        row["conversation_created_at"].isoformat()
+                        if row["conversation_created_at"]
+                        else None
+                    ),
+                    "messages": [],
+                },
+            )
+            if row["message_id"] is not None:
+                conversation["messages"].append(
                     {
-                        "id": m.id,
-                        "role": m.role,
-                        "content": m.content,
-                        "sql_generated": m.sql_generated,
-                        "created_at": m.created_at.isoformat() if m.created_at else None,
+                        "id": row["message_id"],
+                        "role": row["role"],
+                        "content": row["content"],
+                        "sql_generated": row["sql_generated"],
+                        "created_at": (
+                            row["message_created_at"].isoformat()
+                            if row["message_created_at"]
+                            else None
+                        ),
                     }
-                    for m in msgs
-                ],
-            })
-        return history
+                )
+
+        return list(history_by_id.values())

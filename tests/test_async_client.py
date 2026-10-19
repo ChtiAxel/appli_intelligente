@@ -41,6 +41,7 @@ async def test_generate_posts_expected_payload(fake_ollama):
             "model": "llama3.2",
             "prompt": "Salut",
             "stream": False,
+            "keep_alive": config.OLLAMA_KEEP_ALIVE,
             "system": "sys",
             "options": {"temperature": 0},
         }
