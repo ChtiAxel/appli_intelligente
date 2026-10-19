@@ -78,7 +78,8 @@ class OllamaTests(unittest.TestCase):
         prompt = client.generate.call_args.args[0]
         self.assertIn("Combien ?", prompt)
         self.assertIn("TABLE details", prompt)
-        self.assertEqual(client.generate.call_args.kwargs["options"], {"temperature": 0})
+        self.assertEqual(client.generate.call_args.kwargs["options"], {"temperature": 0, "num_predict": -1})
+        self.assertIs(client.generate.call_args.kwargs["think"], False)
 
 
 if __name__ == "__main__":

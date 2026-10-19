@@ -36,9 +36,12 @@ class AsyncOllamaClient:
         *,
         system: Optional[str] = None,
         options: Optional[Mapping[str, Any]] = None,
+        think: Optional[bool] = None,
     ) -> str:
         """Envoie un prompt (stream=false) et retourne le texte généré."""
         body: dict[str, Any] = {"model": self.model, "prompt": prompt, "stream": False}
+        if think is not None:
+            body["think"] = think
         if system is not None:
             body["system"] = system
         if options is not None:
@@ -64,4 +67,8 @@ class AsyncOllamaClient:
         text = payload.get("response") if isinstance(payload, dict) else None
         if not isinstance(text, str):
             raise OllamaResponseError(f"Réponse /api/generate inattendue : {payload!r}")
+        if payload.get("done_reason") == "length":
+            raise OllamaResponseError(
+                "La réponse de l'IA a été interrompue avant la fin du SQL. Veuillez réessayer."
+            )
         return text

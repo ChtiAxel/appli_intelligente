@@ -71,7 +71,8 @@ async def test_sql_prompt_contains_schema_and_question(fake_ollama, llm):
     assert SCHEMA in body["prompt"]
     assert QUESTION in body["prompt"]
     assert body["model"] == "test-model"
-    assert body["options"] == {"temperature": 0}
+    assert body["options"] == {"temperature": 0, "num_predict": -1}
+    assert body["think"] is False
 
 
 async def test_sql_markdown_fence_is_stripped(fake_ollama, llm):
