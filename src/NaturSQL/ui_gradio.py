@@ -14,6 +14,7 @@ from .service.auth import AuthService
 from .storage.conversations import ConversationStorage
 from .service.core import ask_database
 from .service.monitoring import get_system_status
+from .ollama_client.llm import LLMClient
 
 def load_markdown(filename: str) -> str:
     candidates = [
@@ -531,26 +532,38 @@ div[class*="progress-text"] { display: none !important; }
     border: none !important;
 }
 .active-conv-actions {
-    background: #ffffff !important;
+    background: #f9fafb !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
-    padding: 10px !important;
-    margin-top: 10px !important;
-    margin-bottom: 8px !important;
+    padding: 8px 10px !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+.active-conv-actions input {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 4px !important;
+    margin-bottom: 6px !important;
 }
 .action-box-title {
     font-size: 11px !important;
     font-weight: 600 !important;
-    color: #6b7280 !important;
+    color: #4b5563 !important;
     margin-bottom: 6px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
 }
 .delete-btn-hover {
     color: #b91c1c !important;
     background: #fef2f2 !important;
     border: 1px solid #fecaca !important;
     transition: all 0.2s ease-in-out !important;
+    font-size: 12px !important;
+    padding: 2px 8px !important;
 }
 .delete-btn-hover:hover {
     background: #dc2626 !important;
@@ -677,32 +690,37 @@ def _status_badges_html() -> str:
     )
 
 
-def _welcome_banner_html(user=None) -> str:
-    """Return welcome box with tips accordion without emoji."""
+def _welcome_banner_html(user=None, include_tips=True) -> str:
+    """Return welcome box without emoji (kept for test compatibility)."""
     prenom = getattr(user, "prenom", "") if user else ""
     prenom_str = html.escape(prenom.strip()) if prenom else "Utilisateur"
+    tips_block = ""
+    if include_tips:
+        tips_block = (
+            '    <details class="tips-accordion">\n'
+            '        <summary class="tips-summary">Conseils de formulation</summary>\n'
+            '        <div class="tips-content">\n'
+            '            <ul>\n'
+            '                <li><strong>Precisez les intitules :</strong> Indiquez le nom complet du cours ou de la matiere (ex. Qualite de developpement).</li>\n'
+            '                <li><strong>Specifiez le type de seance :</strong> Ciblez les cours magistraux (CM), travaux diriges (TD) ou travaux pratiques (TP).</li>\n'
+            '                <li><strong>Evitez les abreviations :</strong> Formulez clairement votre demande pour optimiser la generation de la requete SQL.</li>\n'
+            '                <li><strong>Exemples de questions types :</strong>\n'
+            '                    <ul>\n'
+            '                        <li>Quels enseignants donnent des TP dans le cours Qualite de developpement ?</li>\n'
+            '                        <li>Quel est le volume d\'heures de cours magistraux dispense par enseignant ?</li>\n'
+            '                        <li>Quelles sont les matieres dispensees au semestre 1 ?</li>\n'
+            '                        <li>Donne-moi la liste des enseignants vacataires.</li>\n'
+            '                    </ul>\n'
+            '                </li>\n'
+            '            </ul>\n'
+            '        </div>\n'
+            '    </details>\n'
+        )
     return (
         '<div class="welcome-box">\n'
         f'    <h2 class="welcome-title">Bonjour {prenom_str}, que souhaitez-vous analyser aujourd\'hui ?</h2>\n'
         '    <p class="welcome-subtitle">Posez vos questions sur les maquettes pedagogiques, les volumes horaires et les plannings en langage naturel.</p>\n'
-        '    <details class="tips-accordion">\n'
-        '        <summary class="tips-summary">Conseils de formulation</summary>\n'
-        '        <div class="tips-content">\n'
-        '            <ul>\n'
-        '                <li><strong>Precisez les intitules :</strong> Indiquez le nom complet du cours ou de la matiere (ex. Qualite de developpement).</li>\n'
-        '                <li><strong>Specifiez le type de seance :</strong> Ciblez les cours magistraux (CM), travaux diriges (TD) ou travaux pratiques (TP).</li>\n'
-        '                <li><strong>Evitez les abreviations :</strong> Formulez clairement votre demande pour optimiser la generation de la requete SQL.</li>\n'
-        '                <li><strong>Exemples de questions types :</strong>\n'
-        '                    <ul>\n'
-        '                        <li>Quels enseignants donnent des TP dans le cours Qualite de developpement ?</li>\n'
-        '                        <li>Quel est le volume d\'heures de cours magistraux dispense par enseignant ?</li>\n'
-        '                        <li>Quelles sont les matieres dispensees au semestre 1 ?</li>\n'
-        '                        <li>Donne-moi la liste des enseignants vacataires.</li>\n'
-        '                    </ul>\n'
-        '                </li>\n'
-        '            </ul>\n'
-        '        </div>\n'
-        '    </details>\n'
+        f'{tips_block}'
         '</div>'
     )
 
@@ -718,7 +736,7 @@ def get_conv_period(dt: datetime) -> str:
 
 
 def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False) -> str:
-    """Format query and SQL results into Markdown."""
+    """Format query, French synthesis, and SQL results table into Markdown."""
     if not sql and not results:
         return "Desole, je n'ai pas pu comprendre la demande ou aucune donnee n'a ete trouvee."
     
@@ -739,33 +757,24 @@ def _format_bot_response(sql: str | None, results: list[dict] | None, simplified
             active_headers = headers
             
         display_headers = [h.replace("_", " ").title() for h in active_headers]
-        
-        if len(active_headers) == 1:
-            md_parts.append(f"**{display_headers[0]} :**\n")
-            for i, row in enumerate(results):
-                if i >= 50:
-                    md_parts.append(f"\n*... {len(results)-50} resultats supplementaires masques ...*")
-                    break
-                val = row.get(active_headers[0])
-                val_str = str(val) if val is not None and str(val).strip() != "" else "-"
-                md_parts.append(f"- {val_str}")
-        else:
-            table_lines = []
-            table_lines.append("| " + " | ".join(display_headers) + " |")
-            table_lines.append("|" + "|".join(["---"] * len(active_headers)) + "|")
-            for i, row in enumerate(results):
-                if i >= 50:
-                    table_lines.append(f"*... {len(results)-50} resultats supplementaires masques ...*")
-                    break
-                r_str = []
-                for h in active_headers:
-                    val = row.get(h)
-                    if val is None or str(val).strip() == "" or str(val) == "None":
-                        r_str.append("-")
-                    else:
-                        r_str.append(str(val).replace("|", "\\|"))
-                table_lines.append("| " + " | ".join(r_str) + " |")
-            md_parts.append("\n".join(table_lines))
+
+        # Tableau Markdown des resultats
+        table_lines = []
+        table_lines.append("| " + " | ".join(display_headers) + " |")
+        table_lines.append("|" + "|".join(["---"] * len(active_headers)) + "|")
+        for i, row in enumerate(results):
+            if i >= 50:
+                table_lines.append(f"*... {len(results)-50} resultats supplementaires masques ...*")
+                break
+            r_str = []
+            for h in active_headers:
+                val = row.get(h)
+                if val is None or str(val).strip() == "" or str(val) == "None":
+                    r_str.append("-")
+                else:
+                    r_str.append(str(val).replace("|", "\\|"))
+            table_lines.append("| " + " | ".join(r_str) + " |")
+        md_parts.append("\n".join(table_lines))
     else:
         md_parts.append("\n*Aucun resultat trouve.*")
         
@@ -878,21 +887,14 @@ def build_app():
                             btn_rename_confirm = gr.Button("Renommer", size="sm", variant="secondary", scale=1)
                             btn_delete_confirm = gr.Button("Supprimer", size="sm", variant="stop", elem_classes=["delete-btn-hover"], scale=1)
 
-                    btn_clear_all_convs = gr.Button(
-                        "Vider toutes les conversations",
-                        size="sm",
-                        variant="secondary",
-                        elem_classes=["clear-all-convs-btn"],
-                    )
-
                 with gr.Column(elem_id="conv-main"):
-                    welcome_box = gr.HTML(_welcome_banner_html(), elem_classes=["welcome-container"], visible=True)
+                    welcome_box = gr.HTML("", elem_classes=["welcome-container"], visible=False)
 
                     with gr.Row(elem_classes=["chat-toolbar"]):
                         with gr.Row(elem_classes=["chat-toolbar-left"]):
                             view_mode = gr.Radio(
-                                choices=["Mode Simplifie", "Mode Expert"],
-                                value="Mode Expert",
+                                choices=["Avec SQL", "Sans SQL"],
+                                value="Avec SQL",
                                 label="",
                                 container=False,
                                 elem_classes=["view-mode-toggle"],
@@ -1021,7 +1023,7 @@ def build_app():
                 user, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                 gr.update(visible=True), "", _profile_card_md(user), "",
                 gr.update(value=[]), gr.update(choices=choices, value=None), conv_map, None, header_user_name_str, gr.update(visible=True),
-                gr.update(value=welcome_html, visible=True), gr.update(value=status_html), gr.update(visible=False), "", gr.update(visible=False, value=None)
+                gr.update(value="", visible=False), gr.update(value=status_html), gr.update(visible=False), "", gr.update(visible=False, value=None)
             )
 
         signin_button.click(
@@ -1160,7 +1162,12 @@ def build_app():
             is_new = (current_cid is None)
             current_title = ""
             if is_new:
-                title = user_msg[:50] + ("..." if len(user_msg) > 50 else "")
+                # Titrage intelligent par l'IA
+                try:
+                    llm = LLMClient()
+                    title = await llm.generate_title(user_msg)
+                except Exception:
+                    title = user_msg[:40] + ("..." if len(user_msg) > 40 else "")
                 conv = await asyncio.to_thread(conv_storage.create_conversation, user.nom_util, title)
                 current_cid = conv.id
                 current_title = conv.title
@@ -1173,7 +1180,7 @@ def build_app():
                         break
 
             csv_file = None
-            simplified = (mode == "Mode Simplifie")
+            simplified = (mode in ("Sans SQL", "Mode Simplifie"))
             try:
                 sql_str, results = await ask_database(user_msg)
                 bot_md = _format_bot_response(sql_str, results, simplified=simplified)
@@ -1235,14 +1242,14 @@ def build_app():
 
         def do_new_conversation(user):
             if not user:
-                return [], None, gr.update(), gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
+                return [], None, gr.update(), gr.update(visible=False), gr.update(visible=False), "", gr.update(visible=False, value=None)
             conversations = conv_storage.list_conversations(user.nom_util)
             choices, _ = _build_conv_choices(conversations)
             return (
                 [],
                 None,
                 gr.update(choices=choices, value=None),
-                gr.update(value=_welcome_banner_html(user), visible=True),
+                gr.update(value="", visible=False),
                 gr.update(visible=False),
                 "",
                 gr.update(visible=False, value=None),
@@ -1260,7 +1267,7 @@ def build_app():
                 return [], None, gr.update(), gr.update(visible=False), "", gr.update(visible=False, value=None)
             cid = cmap[label]
             messages = conv_storage.get_messages(cid)
-            simplified = (mode == "Mode Simplifie")
+            simplified = (mode in ("Sans SQL", "Mode Simplifie"))
             history = []
             for m in messages:
                 content = m.content
@@ -1276,7 +1283,7 @@ def build_app():
             
             clean_title = label.rsplit(" #", 1)[0] if " #" in label else label
 
-            welcome_update = gr.update(visible=False) if history else gr.update(visible=True)
+            welcome_update = gr.update(visible=False)
             active_box_update = gr.update(visible=True)
             rename_update = gr.update(value=clean_title)
             csv_update = gr.update(visible=False, value=None)
@@ -1293,7 +1300,7 @@ def build_app():
             if not cid:
                 return gr.update()
             messages = conv_storage.get_messages(cid)
-            simplified = (mode == "Mode Simplifie")
+            simplified = (mode in ("Sans SQL", "Mode Simplifie"))
             history = []
             for m in messages:
                 content = m.content
@@ -1338,7 +1345,7 @@ def build_app():
 
         def do_delete_conversation(cid, user):
             if not cid or not user:
-                return gr.update(), gr.update(), [], None, gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
+                return gr.update(), gr.update(), [], None, gr.update(visible=False), gr.update(visible=False), "", gr.update(visible=False, value=None)
             conv_storage.delete_conversation(cid)
             gr.Info("Discussion supprimee.")
             conversations = conv_storage.list_conversations(user.nom_util)
@@ -1348,7 +1355,7 @@ def build_app():
                 new_map,
                 [],
                 None,
-                gr.update(value=_welcome_banner_html(user), visible=True),
+                gr.update(value="", visible=False),
                 gr.update(visible=False),
                 "",
                 gr.update(visible=False, value=None),
@@ -1357,28 +1364,6 @@ def build_app():
         btn_delete_confirm.click(
             do_delete_conversation,
             inputs=[current_conv_id, session_user],
-            outputs=[conv_radio, conv_id_map, chatbot, current_conv_id, welcome_box, active_conv_box, rename_title_input, csv_download_btn],
-        )
-
-        def do_clear_all_conversations(user):
-            if not user:
-                return gr.update(choices=[]), {}, [], None, gr.update(visible=True), gr.update(visible=False), "", gr.update(visible=False, value=None)
-            conv_storage.delete_all_conversations(user.nom_util)
-            gr.Info("Toutes les conversations ont ete supprimees.")
-            return (
-                gr.update(choices=[], value=None),
-                {},
-                [],
-                None,
-                gr.update(value=_welcome_banner_html(user), visible=True),
-                gr.update(visible=False),
-                "",
-                gr.update(visible=False, value=None),
-            )
-
-        btn_clear_all_convs.click(
-            do_clear_all_conversations,
-            inputs=[session_user],
             outputs=[conv_radio, conv_id_map, chatbot, current_conv_id, welcome_box, active_conv_box, rename_title_input, csv_download_btn],
         )
 
