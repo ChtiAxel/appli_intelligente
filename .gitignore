@@ -16,3 +16,6 @@ trello_output.txt
 reponses_controle_noa.txt
 extract_sujet_04.py
 extract_sujet_04_v2.py
+
+# Documentation build output
+site/
