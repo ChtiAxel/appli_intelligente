@@ -11,9 +11,10 @@ from NaturSQL.storage.users import User, UserStorage
 
 
 class FakeCursor:
-    def __init__(self, rows=None, lastrowid=1, fetchone_results=None):
+    def __init__(self, rows=None, lastrowid=1, rowcount=1, fetchone_results=None):
         self.rows = rows or []
         self.lastrowid = lastrowid
+        self.rowcount = rowcount
         self.queries = []
         self.fetchone_results = list(fetchone_results) if fetchone_results is not None else None
 
@@ -115,6 +116,11 @@ class StorageTests(unittest.TestCase):
         message = storage.add_message(1, "user", "Hello")
         self.assertEqual(message.content, "Hello")
         self.assertEqual(storage.get_messages(1)[0].role, "user")
+
+        self.assertTrue(storage.rename_conversation(1, "Nouveau Titre"))
+        self.assertFalse(storage.rename_conversation(1, "   "))
+        self.assertTrue(storage.delete_conversation(1))
+        self.assertTrue(storage.delete_all_conversations("dupont.jean"))
 
     @patch("NaturSQL.storage.conversations.db.transaction")
     def test_get_full_user_history_uses_one_query(self, transaction):

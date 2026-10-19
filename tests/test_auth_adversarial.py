@@ -9,7 +9,6 @@ Covers:
 - Parameterized query verification against SQL injection in UserStorage methods
 """
 
-import hashlib
 import unittest
 from unittest.mock import patch
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -43,9 +42,7 @@ class InMemoryUserStorage:
 
     @staticmethod
     def _verify_password(password, stored_hash):
-        if len(stored_hash) == 32:
-            return hashlib.md5(password.encode("utf-8")).hexdigest() == stored_hash
-        return check_password_hash(stored_hash, password)
+        return UserStorage._verify_password(password, stored_hash)
 
     def find_by_name(self, first_name, last_name):
         return self.users.get((first_name, last_name))

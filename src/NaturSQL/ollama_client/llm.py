@@ -68,3 +68,20 @@ class LLMClient:
         raise OllamaResponseError(
             "L'IA n'a renvoyé aucune requête SQL après deux tentatives. Veuillez réessayer."
         )
+    async def generate_title(self, question: str) -> str:
+        """Génère un titre très court (3 à 5 mots en français) pour nommer la discussion."""
+        prompt = (
+            "Tu es un assistant de synthèse. Donne un titre concis en français (maximum 4 ou 5 mots, sans ponctuation finale, sans guillemets, sans emoji) "
+            f"pour résumer cette question d'utilisateur :\n{question}\nTitre :"
+        )
+        try:
+            res = await self.client.generate(prompt, options={"temperature": 0.3})
+            title = res.strip().strip('"\'').strip()
+            # Nettoyer et tronquer si trop long
+            if "\n" in title:
+                title = title.split("\n")[0].strip()
+            if len(title) > 40:
+                title = title[:40].strip()
+            return title if title else question[:35]
+        except Exception:
+            return question[:35]
