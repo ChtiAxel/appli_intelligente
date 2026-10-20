@@ -7,11 +7,17 @@ est remplacée par des fonctions factices (monkeypatch).
 from __future__ import annotations
 
 import threading
+import json
+from datetime import date
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from NaturSQL.ollama_client.async_client import AsyncOllamaClient
-from NaturSQL.ollama_client.llm import SQL_SYSTEM_PROMPT, LLMClient
+from NaturSQL.ollama_client.llm import SQL_SYSTEM_PROMPT, SUMMARY_SYSTEM_PROMPT, LLMClient
+from NaturSQL.ollama_client.ollama_wrapper_iut import OllamaResponseError
+from NaturSQL import config
 from NaturSQL.service import core
 
 SCHEMA = "TABLE details: nom_ens varchar, prenom_ens varchar, type_seance varchar"
@@ -126,3 +132,49 @@ async def test_pipeline_rejects_unsafe_sql(fake_ollama, llm, fake_db):
 async def test_pipeline_rejects_empty_question(llm, fake_db):
     with pytest.raises(ValueError, match="vide"):
         await core.ask_database("   ", llm)
+
+
+async def test_query_results_are_sent_to_french_summary_without_extra_sql(fake_ollama, llm, fake_db):
+    fake, _ = fake_ollama
+    def responder(body):
+        if body.get("system") == SUMMARY_SYSTEM_PROMPT:
+            return 200, {"response": "Aurélien Buret intervient en TP."}
+        return sql_responder()(body)
+    fake.responder = responder
+    sql, rows = await core.ask_database(QUESTION, llm)
+    summary = await llm.summarize_results(QUESTION, rows)
+    assert summary == "Aurélien Buret intervient en TP."
+    assert fake_db["executed"] == [GENERATED_SQL]
+    assert len(fake.requests) == 2
+    request = fake.requests[-1]
+    assert request["system"] == SUMMARY_SYSTEM_PROMPT
+    payload = json.loads(request["prompt"])
+    assert payload["question"] == QUESTION
+    assert payload["resultats"] == ROWS
+    assert payload["resultats_potentiellement_tronques"] is False
+    assert request["think"] is False
+
+
+async def test_empty_results_have_french_summary_without_llm_call():
+    client = Mock()
+    client.generate = AsyncMock()
+    summary = await LLMClient(client).summarize_results(QUESTION, [])
+    assert "Aucun résultat" in summary
+    client.generate.assert_not_awaited()
+
+
+async def test_summary_serializes_dates_and_decimals_and_flags_row_cap():
+    client = Mock()
+    client.generate = AsyncMock(return_value="Synthèse.")
+    rows = [{"date": date(2026, 10, 20), "heures": Decimal("1.5"), "commentaire": None}] * config.DB_MAX_ROWS
+    await LLMClient(client).summarize_results(QUESTION, rows)
+    payload = json.loads(client.generate.call_args.args[0])
+    assert payload["resultats"][0] == {"date": "2026-10-20", "heures": "1.5", "commentaire": None}
+    assert payload["resultats_potentiellement_tronques"] is True
+
+
+async def test_empty_summary_is_reported_as_ollama_error():
+    client = Mock()
+    client.generate = AsyncMock(return_value="   ")
+    with pytest.raises(OllamaResponseError, match="aucune synthèse"):
+        await LLMClient(client).summarize_results(QUESTION, ROWS)

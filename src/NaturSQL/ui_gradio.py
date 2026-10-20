@@ -906,7 +906,7 @@ def get_conv_period(dt: datetime) -> str:
     return "Plus ancien"
 
 
-def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False) -> str:
+def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False, summary: str | None = None) -> str:
     """Format query, French synthesis, and SQL results table into Markdown."""
     if not sql and not results:
         return "Desole, je n'ai pas pu comprendre la demande ou aucune donnee n'a ete trouvee."
@@ -917,6 +917,9 @@ def _format_bot_response(sql: str | None, results: list[dict] | None, simplified
         code_lines = [f"{i+1:>3} │ {line}" for i, line in enumerate(lines)]
         md_parts.append(f"```sql\n{chr(10).join(code_lines)}\n```")
     
+    if summary:
+        md_parts.append(summary.strip())
+
     if results:
         headers = list(results[0].keys())
         active_headers = []
@@ -1499,7 +1502,12 @@ def build_app():
             simplified = (mode in ("Sans SQL", "Mode Simplifie"))
             try:
                 sql_str, results = await ask_database(user_msg)
-                bot_md = _format_bot_response(sql_str, results, simplified=simplified)
+                try:
+                    summary = await LLMClient().summarize_results(user_msg, results)
+                except Exception:
+                    # Preserve useful data even if the second Ollama call fails.
+                    summary = "Les résultats sont disponibles ci-dessous, mais la synthèse est temporairement indisponible."
+                bot_md = _format_bot_response(sql_str, results, simplified=simplified, summary=summary)
                 await asyncio.to_thread(conv_storage.add_message, current_cid, "assistant", bot_md, sql_str)
                 if results:
                     csv_file = create_results_csv(results)

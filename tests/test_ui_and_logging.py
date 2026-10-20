@@ -6,6 +6,11 @@ from shared.logging import get_logger
 
 
 class UiAndLoggingTests(unittest.TestCase):
+    def setUp(self):
+        status = patch("NaturSQL.ui_gradio.get_system_status", return_value={"mariadb": True, "ollama": True})
+        status.start()
+        self.addCleanup(status.stop)
+
     def test_status_html(self):
         self.assertEqual(_status_html("", True), "")
         self.assertIn("status-msg ok", _status_html("OK", True))
@@ -230,7 +235,8 @@ class UiAndLoggingTests(unittest.TestCase):
             comp for comp in app.blocks.values()
             if isinstance(comp, gr.DownloadButton)
         ]
-        self.assertEqual(download_buttons, [])
+        self.assertEqual(len(download_buttons), 1)
+        self.assertEqual(download_buttons[0].label, "Telecharger en CSV")
 
         # Verify RGPD Checkbox exists
         rgpd_checkboxes = [
@@ -284,7 +290,8 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn("```sql", resp_expert)
         self.assertIn("Dupont", resp_expert)
 
-        resp_simplified = _format_bot_response(sql, results, simplified=True)
+        resp_simplified = _format_bot_response(sql, results, simplified=True, summary="Dupont totalise 42 heures.")
+        self.assertIn("Dupont totalise 42 heures.", resp_simplified)
         self.assertNotIn("```sql", resp_simplified)
         self.assertIn("Dupont", resp_simplified)
 

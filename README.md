@@ -15,7 +15,8 @@ Ce projet est réalisé dans le cadre de la SAE "Application Intelligente".
 ### ✨ Fonctionnalités clés
 - **Traduction IA locale** : Utilisation d'un modèle LLM local (Ollama) pour analyser les questions et générer le SQL approprié, garantissant la confidentialité des données (aucune donnée envoyée dans le cloud).
 - **Interface Web Moderne** : Développée avec Gradio, comprenant une gestion complète de comptes utilisateurs (Inscription, Connexion, Profil).
-- **Sécurité Stricte** : Exécution des requêtes dans un environnement confiné (compte MariaDB de l'application commun à tous les profils, validation SQL en lecture seule, timeout strict de 3 secondes, limitation à 50 lignes retournées).
+- **Sécurité Stricte** : Exécution des requêtes dans un environnement confiné (compte MariaDB dédié en lecture seule et transactions en lecture seule, validation SQL en lecture seule, timeout strict de 3 secondes, limitation à 50 lignes retournées).
+- **Synthèse des résultats** : Une réponse explicative en français générée par le LLM accompagne le tableau; les données restent affichées si la synthèse est indisponible.
 - **Historique & Chat** : Interface de type "chatbot" permettant de retrouver facilement ses anciennes conversations via une barre de recherche.
 
 ---
@@ -72,7 +73,3 @@ Ce projet est réalisé dans le cadre de la SAE "Application Intelligente".
 - **Noa GAILLARD**
 
 --- 
-
-## ⏳ Développement en cours
-
- - **V1**
