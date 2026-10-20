@@ -65,6 +65,8 @@ def test_readonly_connection_parameters(mock_connect):
         write_timeout=3.0,
         connect_timeout=3.0,
     )
+    executed = mock_conn.cursor.return_value.__enter__.return_value.execute.call_args_list
+    assert any(call.args == ("SET SESSION TRANSACTION READ ONLY",) for call in executed)
     # Vérifie la configuration du timeout MariaDB au niveau de la session
     mock_conn.cursor.return_value.__enter__.return_value.execute.assert_called_with(
         "SET SESSION max_statement_time = 3.0"
@@ -287,8 +289,8 @@ def test_execution_timeout_raises_query_timeout_error():
 # 6. Intégration avec ask_database
 # =====================================================================
 
-async def test_ask_database_uses_application_connection_and_limits():
-    """Vérifie que ask_database utilise bien la connexion de l'application et applique les limites."""
+async def test_ask_database_uses_readonly_connection_and_limits():
+    """Vérifie que ask_database utilise le compte lecture seule et applique les limites."""
     mock_conn = MagicMock()
     mock_conn.__enter__.return_value = mock_conn
     mock_cursor = mock_conn.cursor.return_value.__enter__.return_value
@@ -298,7 +300,7 @@ async def test_ask_database_uses_application_connection_and_limits():
     llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM cours")
 
     with patch.object(core, "database_schema", return_value="TABLE cours: id_cours varchar"):
-        with patch("NaturSQL.service.core.get_query_connection", return_value=mock_conn):
+        with patch("NaturSQL.service.core.get_readonly_connection", return_value=mock_conn):
             sql, rows = await core.ask_database("Combien de cours ?", llm=llm)
 
     assert sql == "SELECT COUNT(*) AS count FROM cours"
@@ -791,16 +793,22 @@ def test_forbidden_sql_blocks_for_share_and_into():
 
 
 
+@patch("NaturSQL.storage.db.get_readonly_connection")
+def test_query_connection_always_uses_readonly_factory(mock_readonly):
+    assert db.get_query_connection(timeout=2.0) is mock_readonly.return_value
+    mock_readonly.assert_called_once_with(timeout=2.0)
+
+
 @patch("NaturSQL.storage.db.pymysql.connect")
-def test_application_query_connection_uses_shared_credentials_and_timeouts(mock_connect):
-    conn = db.get_query_connection(timeout=2.0)
-    params = mock_connect.call_args.kwargs
-    assert params["user"] == config.DB_USER
-    assert params["password"] == config.DB_PASSWORD
-    assert params["read_timeout"] == 2.0
-    assert params["write_timeout"] == 2.0
-    assert params["connect_timeout"] == 2.0
-    assert params["autocommit"] is True
-    conn.cursor.return_value.__enter__.return_value.execute.assert_called_once_with(
-        "SET SESSION max_statement_time = 2.0"
-    )
+def test_readonly_connection_fails_closed_if_session_protection_fails(mock_connect):
+    conn = mock_connect.return_value
+    conn.cursor.return_value.__enter__.return_value.execute.side_effect = pymysql.OperationalError(1227, "access denied")
+    with pytest.raises(pymysql.OperationalError):
+        get_readonly_connection()
+    conn.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("table", ["conversations", "messages"])
+def test_generated_queries_cannot_read_private_chat_history(table):
+    with pytest.raises(ValueError, match="sensibles"):
+        core.validate_read_only_sql(f"SELECT * FROM {table}")
