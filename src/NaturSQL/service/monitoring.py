@@ -6,25 +6,32 @@ import urllib.request
 from typing import TypedDict
 
 from NaturSQL import config
-from NaturSQL.storage.db import get_connection, get_readonly_connection
+from NaturSQL.storage.db import get_connection, get_query_connection
 
 
 class SystemStatus(TypedDict):
     mariadb: bool
+    mariadb_queries: bool
     ollama: bool
 
 
 def check_mariadb() -> bool:
     """Return True if MariaDB is reachable and queryable, False otherwise."""
-    conn_getter = get_readonly_connection
-    if getattr(get_connection, "_mock_name", None) is not None or (
-        hasattr(get_connection, "return_value") and hasattr(get_connection, "assert_called")
-    ):
-        conn_getter = get_connection
     try:
-        with conn_getter() as connection:
+        with get_connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
+                return True
+    except Exception:
+        return False
+
+
+def check_query_access() -> bool:
+    """Check the real query account and a pedagogical view, independently of liveness."""
+    try:
+        with get_query_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1 FROM details LIMIT 0")
                 return True
     except Exception:
         return False
@@ -43,7 +50,9 @@ def check_ollama(timeout: float = 2.0) -> bool:
 
 def get_system_status() -> SystemStatus:
     """Return status of both MariaDB and Ollama."""
+    mariadb = check_mariadb()
     return {
-        "mariadb": check_mariadb(),
+        "mariadb": mariadb,
+        "mariadb_queries": check_query_access() if mariadb else False,
         "ollama": check_ollama(),
     }

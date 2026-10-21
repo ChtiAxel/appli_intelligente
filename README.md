@@ -52,6 +52,11 @@ Ce projet est réalisé dans le cadre de la SAE "Application Intelligente".
    docker-compose up -d --build
    ```
 
+Les questions utilisent `DB_USER` / `DB_PASSWORD` dans une session MariaDB
+en lecture seule, avec validation du SQL, limites de temps et de résultats.
+Elles ne dépendent pas de la création d'un second compte sur un ancien volume.
+Le statut distingue la connexion au serveur et l'accès effectif aux requêtes.
+
 3. **Accéder à l'application**
    Ouvrez votre navigateur internet sur : [http://localhost:7860](http://localhost:7860)
 

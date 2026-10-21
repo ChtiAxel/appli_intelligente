@@ -46,19 +46,18 @@ def get_connection() -> pymysql.connections.Connection:
     )
 
 
-def get_readonly_connection(
+def _get_readonly_session(
+    user: str,
+    password: str,
     timeout: float | None = None,
 ) -> pymysql.connections.Connection:
-    """Open a dedicated read-only connection to MariaDB with strict timeouts.
-    
-    Used exclusively for AI-generated query execution.
-    """
+    """Open a timed connection and require server-enforced read-only transactions."""
     effective_timeout = float(timeout if timeout is not None else config.DB_QUERY_TIMEOUT)
     conn = pymysql.connect(
         host=config.DB_HOST,
         port=config.DB_PORT,
-        user=config.DB_READONLY_USER,
-        password=config.DB_READONLY_PASSWORD,
+        user=user,
+        password=password,
         database=config.DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
@@ -84,11 +83,18 @@ def get_readonly_connection(
     return conn
 
 
+def get_readonly_connection(
+    timeout: float | None = None,
+) -> pymysql.connections.Connection:
+    """Open the optional dedicated account for diagnostics and compatibility."""
+    return _get_readonly_session(config.DB_READONLY_USER, config.DB_READONLY_PASSWORD, timeout)
+
+
 def get_query_connection(
     timeout: float | None = None,
 ) -> pymysql.connections.Connection:
-    """Open a query connection with the dedicated read-only account."""
-    return get_readonly_connection(timeout=timeout)
+    """Use the working application credentials with read-only session protection."""
+    return _get_readonly_session(config.DB_USER, config.DB_PASSWORD, timeout)
 
 
 @contextmanager
@@ -164,7 +170,7 @@ def _classify_db_error(exc: Exception, timeout: float) -> DatabaseError:
         or "permission denied" in msg_lower
     ):
         return QueryPermissionError(
-            "Accès refusé : vous n'avez pas les autorisations nécessaires pour exécuter cette opération."
+            "Accès refusé par MariaDB : le compte SQL de l'application est mal configuré ou ne dispose pas des droits requis. Ce problème ne dépend pas de votre profil."
         )
 
     # Syntax errors
@@ -412,7 +418,7 @@ def execute_readonly_query(
     timeout: float | None = None,
     connection: pymysql.connections.Connection | None = None,
 ) -> list[dict[str, Any]]:
-    """Execute a query safely against MariaDB using the read-only account.
+    """Execute a query safely against MariaDB using a protected read-only session.
     
     Enforces read-only validation, execution timeout, and maximum returned row count.
     Never lets low-level database exceptions crash the application.
@@ -443,7 +449,7 @@ def execute_readonly_query(
     should_close = connection is None
 
     try:
-        conn = connection or get_readonly_connection(timeout=effective_timeout)
+        conn = connection or get_query_connection(timeout=effective_timeout)
         with conn.cursor() as cursor:
             cursor.execute(validated_sql, params)
             # Retrieve rows
