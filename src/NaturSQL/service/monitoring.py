@@ -6,7 +6,7 @@ import urllib.request
 from typing import TypedDict
 
 from NaturSQL import config
-from NaturSQL.storage.db import get_connection, get_readonly_connection
+from NaturSQL.storage.db import get_connection, get_query_connection
 
 
 class SystemStatus(TypedDict):
@@ -29,7 +29,7 @@ def check_mariadb() -> bool:
 def check_query_access() -> bool:
     """Check the real query account and a pedagogical view, independently of liveness."""
     try:
-        with get_readonly_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
+        with get_query_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1 FROM details LIMIT 0")
                 return True

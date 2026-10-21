@@ -300,7 +300,7 @@ async def test_ask_database_uses_readonly_connection_and_limits():
     llm.generate_sql = AsyncMock(return_value="SELECT COUNT(*) AS count FROM cours")
 
     with patch.object(core, "database_schema", return_value="TABLE cours: id_cours varchar"):
-        with patch("NaturSQL.service.core.get_readonly_connection", return_value=mock_conn):
+        with patch("NaturSQL.service.core.get_query_connection", return_value=mock_conn):
             sql, rows = await core.ask_database("Combien de cours ?", llm=llm)
 
     assert sql == "SELECT COUNT(*) AS count FROM cours"
@@ -592,7 +592,7 @@ def test_string_literal_with_semicolon_and_keywords_accepted():
 
 def test_database_connection_failure_classification():
     """Vérifie que les erreurs de connexion à la base sont classifiées en DatabaseError sans crash."""
-    with patch("NaturSQL.storage.db.get_readonly_connection", side_effect=pymysql.err.OperationalError(2003, "Can't connect to MySQL")):
+    with patch("NaturSQL.storage.db.get_query_connection", side_effect=pymysql.err.OperationalError(2003, "Can't connect to MySQL")):
         with pytest.raises(DatabaseError) as exc_info:
             execute_readonly_query("SELECT 1")
         assert "connexion" in str(exc_info.value).lower()
@@ -793,10 +793,24 @@ def test_forbidden_sql_blocks_for_share_and_into():
 
 
 
-@patch("NaturSQL.storage.db.get_readonly_connection")
-def test_query_connection_always_uses_readonly_factory(mock_readonly):
-    assert db.get_query_connection(timeout=2.0) is mock_readonly.return_value
-    mock_readonly.assert_called_once_with(timeout=2.0)
+@patch("NaturSQL.storage.db.pymysql.connect")
+def test_query_connection_uses_application_credentials_with_readonly_protection(connect):
+    conn = db.get_query_connection(timeout=2.0)
+    assert conn is connect.return_value
+    assert connect.call_args.kwargs["user"] == config.DB_USER
+    assert connect.call_args.kwargs["password"] == config.DB_PASSWORD
+    assert connect.call_args.kwargs["read_timeout"] == 2.0
+    statements = [call.args[0] for call in conn.cursor.return_value.__enter__.return_value.execute.call_args_list]
+    assert "SET SESSION TRANSACTION READ ONLY" in statements
+
+
+@patch("NaturSQL.storage.db.pymysql.connect")
+def test_application_query_connection_fails_closed_if_readonly_cannot_be_set(connect):
+    conn = connect.return_value
+    conn.cursor.return_value.__enter__.return_value.execute.side_effect = pymysql.OperationalError(1227, "access denied")
+    with pytest.raises(pymysql.OperationalError):
+        db.get_query_connection()
+    conn.close.assert_called_once_with()
 
 
 @patch("NaturSQL.storage.db.pymysql.connect")

@@ -51,13 +51,13 @@ class MonitoringTests(unittest.TestCase):
         self.assertEqual(get_system_status(), {"mariadb": False, "mariadb_queries": False, "ollama": True})
         queries.assert_not_called()
 
-    @patch("NaturSQL.service.monitoring.get_readonly_connection")
+    @patch("NaturSQL.service.monitoring.get_query_connection")
     def test_query_check_exercises_pedagogical_view(self, connection):
         from NaturSQL.service.monitoring import check_query_access
         self.assertTrue(check_query_access())
         connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.assert_called_once_with("SELECT 1 FROM details LIMIT 0")
 
-    @patch("NaturSQL.service.monitoring.get_readonly_connection", side_effect=Exception("Access denied"))
+    @patch("NaturSQL.service.monitoring.get_query_connection", side_effect=Exception("Access denied"))
     def test_query_access_failure_is_reported(self, connection):
         from NaturSQL.service.monitoring import check_query_access
         self.assertFalse(check_query_access())
