@@ -296,5 +296,32 @@ class UiAndLoggingTests(unittest.TestCase):
         self.assertIn("Dupont", resp_simplified)
 
 
+    @patch("NaturSQL.ui_gradio.AuthService")
+    @patch("NaturSQL.ui_gradio.ConversationStorage")
+    def test_footer_links_are_not_duplicated(self, storage, auth):
+        import gradio as gr
+        from NaturSQL.ui_gradio import build_app
+        app = build_app()
+        footers = [component.value for component in app.blocks.values()
+                   if isinstance(component, gr.HTML) and isinstance(component.value, str)
+                   and "<strong>Aide</strong>" in component.value]
+        self.assertEqual(len(footers), 1)
+        footer = footers[0]
+        self.assertEqual(footer.count("<strong>Aide</strong>"), 1)
+        self.assertEqual(footer.count("<strong>Légal</strong>"), 1)
+        for target in ("doc", "mentions", "privacy", "cgu", "registry"):
+            self.assertEqual(footer.count("getElementById('btn-show-" + target + "')"), 1)
+        callbacks = [event.fn.__name__ for event in app.fns.values() if event.fn]
+        self.assertGreaterEqual(callbacks.count("_status_badges_html"), 2)
+
+    def test_status_distinguishes_connection_and_query_permissions(self):
+        from NaturSQL.ui_gradio import _status_badges_html
+        with patch("NaturSQL.ui_gradio.get_system_status", return_value={"mariadb": True, "mariadb_queries": False, "ollama": True}):
+            status = _status_badges_html()
+        self.assertIn("MariaDB) : En ligne", status)
+        self.assertIn("accès aux requêtes à configurer", status)
+        self.assertNotIn("Hors ligne", status)
+
+
 if __name__ == "__main__":
     unittest.main()

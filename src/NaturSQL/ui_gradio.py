@@ -843,6 +843,8 @@ def _status_badges_html() -> str:
 
     db_class = "status-dot-online" if db_ok else "status-dot-offline"
     db_text = "En ligne" if db_ok else "Hors ligne"
+    if db_ok and not status.get("mariadb_queries", True):
+        db_text += " — accès aux requêtes à configurer"
 
     ollama_class = "status-dot-online" if ollama_ok else "status-dot-offline"
     ollama_text = "Pret" if ollama_ok else "Indisponible"
@@ -1144,35 +1146,22 @@ def build_app():
                 
             with gr.Row():
                 gr.HTML(f"""
-                <div style='display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;'>
-                    <div>
-                        {footer_logo}
-                    </div>
-                    <div style='line-height: 1.8; color: #1f2937;'>
+                <div style="display: flex; align-items: flex-start; padding-left: 2rem; gap: 4rem;">
+                    <div>{footer_logo}</div>
+                    <div style="line-height: 1.8; color: #1f2937;">
                         <strong>Aide</strong><br>
-                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
+                        <a href="#" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
                     </div>
-                    <div style='line-height: 1.8; color: #1f2937;'>
-                        <strong>Legal</strong><br>
-                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions legales</a><br>
-                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialite</a><br>
-                        <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions generales d'utilisation</a>
+                    <div style="line-height: 1.8; color: #1f2937;">
+                        <strong>Légal</strong><br>
+                        <a href="#" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
+                        <a href="#" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
+                        <a href="#" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a><br>
+                        <a href="#" onclick="document.getElementById('btn-show-registry').click(); return false;">Registre des traitements (Art. 30)</a>
                     </div>
-                </div>
-                <div style='line-height: 1.8; color: #1f2937;'>
-                    <strong>Aide</strong><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-doc').click(); return false;">Documentation</a>
-                </div>
-                <div style='line-height: 1.8; color: #1f2937;'>
-                    <strong>Légal</strong><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-mentions').click(); return false;">Mentions légales</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-privacy').click(); return false;">Politique de confidentialité</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-cgu').click(); return false;">Conditions générales d'utilisation</a><br>
-                    <a href="#" style="color: #1f2937; text-decoration: none;" onclick="document.getElementById('btn-show-registry').click(); return false;">Registre des traitements (Art. 30)</a>
-                </div>
                 </div>
                 """, scale=3)
-                system_status_box = gr.HTML(_status_badges_html(), scale=1)
+                system_status_box = gr.HTML("", scale=1)
             
             # Boutons invisibles pour déclencher l'affichage des pages depuis le footer HTML
             btn_go_home = gr.Button(elem_id="btn-go-home", elem_classes=["hidden-btn"])
@@ -1181,6 +1170,10 @@ def build_app():
             btn_show_privacy = gr.Button(elem_id="btn-show-privacy", elem_classes=["hidden-btn"])
             btn_show_cgu = gr.Button(elem_id="btn-show-cgu", elem_classes=["hidden-btn"])
             btn_show_registry = gr.Button(elem_id="btn-show-registry", elem_classes=["hidden-btn"])
+
+        status_timer = gr.Timer(30)
+        status_timer.tick(_status_badges_html, outputs=[system_status_box], show_progress="hidden", api_name=False)
+        demo.load(_status_badges_html, outputs=[system_status_box], show_progress="hidden", api_name=False)
 
         # --- Callbacks ---
 

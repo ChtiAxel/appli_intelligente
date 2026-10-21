@@ -164,7 +164,7 @@ def _classify_db_error(exc: Exception, timeout: float) -> DatabaseError:
         or "permission denied" in msg_lower
     ):
         return QueryPermissionError(
-            "Accès refusé : vous n'avez pas les autorisations nécessaires pour exécuter cette opération."
+            "Accès refusé par MariaDB : le compte SQL de l'application est mal configuré ou ne dispose pas des droits requis. Ce problème ne dépend pas de votre profil."
         )
 
     # Syntax errors
