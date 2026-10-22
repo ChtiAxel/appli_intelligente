@@ -258,7 +258,8 @@ class UiAndLoggingTests(unittest.TestCase):
 
         user = User(prenom="Alice", nom="Martin", mdp="hash")
         welcome = _welcome_banner_html(user)
-        self.assertIn("Bonjour Alice, que souhaitez-vous analyser", welcome)
+        self.assertIn("Bienvenue Alice", welcome)
+        self.assertNotIn("que souhaitez-vous analyser", welcome)
         self.assertIn("Conseils de formulation", welcome)
         self.assertNotIn("🟢", welcome)
         self.assertNotIn("💡", welcome)
