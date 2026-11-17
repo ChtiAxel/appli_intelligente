@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from NaturSQL import config
@@ -55,30 +56,90 @@ FORBIDDEN_SYSTEM_PATTERNS = re.compile(
 
 
 def database_schema() -> str:
-    """Return the schema exposed to the language model."""
+    """Return the structure (tables, columns, keys, relations) exposed to the LLM.
+
+    Only ``information_schema`` metadata is read: no row of any business table
+    is ever selected, so the prompt never contains the data itself. ``DATA_TYPE``
+    is used instead of ``COLUMN_TYPE`` because the latter exposes ENUM/SET
+    values; defaults and comments are deliberately left out for the same reason.
+    """
+    tables = tuple(sorted(ALLOWED_TABLES))
+    placeholders = ", ".join("%s" for _ in tables)
     try:
         with get_query_connection(timeout=config.DB_QUERY_TIMEOUT) as connection:
             with connection.cursor() as cursor:
-                placeholders = ", ".join("%s" for _ in ALLOWED_TABLES)
                 cursor.execute(
-                    "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE "
+                    "SELECT TABLE_NAME, TABLE_TYPE "
+                    "FROM information_schema.TABLES "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (" + placeholders + ")",
+                    tables,
+                )
+                table_rows = cursor.fetchall()
+                cursor.execute(
+                    "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY "
                     "FROM information_schema.COLUMNS "
                     "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (" + placeholders + ") "
                     "ORDER BY TABLE_NAME, ORDINAL_POSITION",
-                    tuple(sorted(ALLOWED_TABLES)),
+                    tables,
                 )
-                rows = cursor.fetchall()
+                column_rows = cursor.fetchall()
+                cursor.execute(
+                    "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME "
+                    "FROM information_schema.KEY_COLUMN_USAGE "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL "
+                    "AND TABLE_NAME IN (" + placeholders + ") "
+                    "AND REFERENCED_TABLE_NAME IN (" + placeholders + ") "
+                    "ORDER BY TABLE_NAME, COLUMN_NAME",
+                    tables + tables,
+                )
+                fk_rows = cursor.fetchall()
     except Exception as exc:
         raise _classify_db_error(exc, config.DB_QUERY_TIMEOUT) from exc
 
-    schema: dict[str, list[str]] = {}
-    for row in rows:
-        schema.setdefault(row["TABLE_NAME"], []).append(
-            f"{row['COLUMN_NAME']} {row['DATA_TYPE']}"
-        )
-    return "\n".join(
-        f"TABLE {table}: {', '.join(columns)}" for table, columns in schema.items()
-    )
+    return format_schema(table_rows, column_rows, fk_rows)
+
+
+def format_schema(
+    table_rows: list[dict[str, Any]],
+    column_rows: list[dict[str, Any]],
+    fk_rows: list[dict[str, Any]],
+) -> str:
+    """Render schema metadata as compact text for the SQL prompt."""
+    views = {
+        row["TABLE_NAME"] for row in table_rows if str(row.get("TABLE_TYPE", "")).upper() == "VIEW"
+    }
+    foreign_keys = {
+        (row["TABLE_NAME"], row["COLUMN_NAME"]): f"{row['REFERENCED_TABLE_NAME']}.{row['REFERENCED_COLUMN_NAME']}"
+        for row in fk_rows
+    }
+
+    columns: dict[str, list[str]] = {}
+    primary_keys: dict[str, list[str]] = {}
+    for row in column_rows:
+        table, column = row["TABLE_NAME"], row["COLUMN_NAME"]
+        description = f"{column} {row['DATA_TYPE']}"
+        if row.get("COLUMN_KEY") == "PRI":
+            primary_keys.setdefault(table, []).append(column)
+        target = foreign_keys.get((table, column))
+        if target:
+            description += f" -> {target}"
+        columns.setdefault(table, []).append(description)
+
+    lines = []
+    for table, cols in columns.items():
+        kind = "VUE" if table in views else "TABLE"
+        pk = primary_keys.get(table)
+        pk_text = f" [cle primaire: {', '.join(pk)}]" if pk else ""
+        lines.append(f"{kind} {table}{pk_text}: {', '.join(cols)}")
+
+    relations = [
+        f"{table}.{column} -> {target}" for (table, column), target in foreign_keys.items()
+    ]
+    if relations:
+        lines.append("")
+        lines.append("RELATIONS (cles etrangeres, a utiliser pour les jointures):")
+        lines.extend(relations)
+    return "\n".join(lines)
 
 
 def validate_read_only_sql(sql: str) -> str:
@@ -137,6 +198,52 @@ async def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str
     sql = await text_to_sql(question.strip(), client)
     rows = await asyncio.to_thread(execute_query, sql)
     return sql, rows
+
+
+VERIFICATION_OK = "verifiee"
+VERIFICATION_CORRECTED = "corrigee"
+VERIFICATION_FAILED = "incoherente"
+VERIFICATION_UNAVAILABLE = "indisponible"
+
+
+@dataclass(frozen=True)
+class VerifiedAnswer:
+    """French synthesis plus the outcome of the verification step."""
+
+    summary: str
+    status: str | None  # None : rien à vérifier (aucun résultat)
+    detail: str = ""
+
+
+async def summarize_and_verify(
+    question: str, rows: list[dict[str, Any]], llm: LLMClient
+) -> VerifiedAnswer:
+    """Synthesize the results, then check the synthesis against the raw data.
+
+    The verifier receives the question, the generated answer and the raw rows.
+    If it finds an inconsistency, the synthesis is regenerated once with its
+    remark and verified again. A summary failure propagates to the caller; a
+    verifier failure only marks the answer as not verified.
+    """
+    summary = await llm.summarize_results(question, rows)
+    if not rows:
+        return VerifiedAnswer(summary, None)
+
+    try:
+        verdict = await llm.verify_answer(question, summary, rows)
+    except Exception:
+        return VerifiedAnswer(summary, VERIFICATION_UNAVAILABLE)
+    if verdict.coherent:
+        return VerifiedAnswer(summary, VERIFICATION_OK)
+
+    try:
+        corrected = await llm.summarize_results(question, rows, correction=verdict.probleme)
+        second = await llm.verify_answer(question, corrected, rows)
+    except Exception:
+        return VerifiedAnswer(summary, VERIFICATION_FAILED, verdict.probleme)
+    if second.coherent:
+        return VerifiedAnswer(corrected, VERIFICATION_CORRECTED, verdict.probleme)
+    return VerifiedAnswer(corrected, VERIFICATION_FAILED, second.probleme)
 
 
 def health_check() -> bool:

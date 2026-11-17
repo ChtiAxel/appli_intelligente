@@ -18,12 +18,55 @@ class CoreTests(unittest.TestCase):
     @patch("NaturSQL.service.core.get_query_connection")
     def test_database_schema_formats_columns(self, get_connection):
         cursor = get_connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
-        cursor.fetchall.return_value = [
-            {"TABLE_NAME": "details", "COLUMN_NAME": "nom_ens", "DATA_TYPE": "varchar"},
-            {"TABLE_NAME": "details", "COLUMN_NAME": "type_seance", "DATA_TYPE": "varchar"},
+        cursor.fetchall.side_effect = [
+            [{"TABLE_NAME": "details", "TABLE_TYPE": "VIEW"}],
+            [
+                {"TABLE_NAME": "details", "COLUMN_NAME": "nom_ens", "DATA_TYPE": "varchar", "COLUMN_KEY": ""},
+                {"TABLE_NAME": "details", "COLUMN_NAME": "type_seance", "DATA_TYPE": "varchar", "COLUMN_KEY": ""},
+            ],
+            [],
         ]
         schema = core.database_schema()
-        self.assertEqual(schema, "TABLE details: nom_ens varchar, type_seance varchar")
+        self.assertEqual(schema, "VUE details: nom_ens varchar, type_seance varchar")
+
+    @patch("NaturSQL.service.core.get_query_connection")
+    def test_database_schema_reads_only_metadata_never_table_rows(self, get_connection):
+        cursor = get_connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cursor.fetchall.side_effect = [[], [], []]
+        core.database_schema()
+        queries = [c.args[0] for c in cursor.execute.call_args_list]
+        self.assertEqual(len(queries), 3)
+        for sql in queries:
+            # Seules les vues de métadonnées sont lues, jamais le contenu des tables.
+            self.assertRegex(sql, r"FROM information_schema\.(TABLES|COLUMNS|KEY_COLUMN_USAGE) ")
+            self.assertNotIn("COLUMN_TYPE", sql)  # exposerait les valeurs ENUM
+            self.assertNotIn("COLUMN_DEFAULT", sql)
+            self.assertNotIn("COMMENT", sql)
+
+    def test_format_schema_includes_keys_and_relations(self):
+        schema = core.format_schema(
+            [
+                {"TABLE_NAME": "enseignants", "TABLE_TYPE": "BASE TABLE"},
+                {"TABLE_NAME": "seances", "TABLE_TYPE": "BASE TABLE"},
+            ],
+            [
+                {"TABLE_NAME": "enseignants", "COLUMN_NAME": "id_ens", "DATA_TYPE": "varchar", "COLUMN_KEY": "PRI"},
+                {"TABLE_NAME": "enseignants", "COLUMN_NAME": "nom_ens", "DATA_TYPE": "varchar", "COLUMN_KEY": ""},
+                {"TABLE_NAME": "seances", "COLUMN_NAME": "id_ens", "DATA_TYPE": "varchar", "COLUMN_KEY": "PRI"},
+                {"TABLE_NAME": "seances", "COLUMN_NAME": "id_cours", "DATA_TYPE": "varchar", "COLUMN_KEY": "PRI"},
+            ],
+            [
+                {"TABLE_NAME": "seances", "COLUMN_NAME": "id_ens", "REFERENCED_TABLE_NAME": "enseignants", "REFERENCED_COLUMN_NAME": "id_ens"},
+            ],
+        )
+        self.assertEqual(
+            schema,
+            "TABLE enseignants [cle primaire: id_ens]: id_ens varchar, nom_ens varchar\n"
+            "TABLE seances [cle primaire: id_ens, id_cours]: id_ens varchar -> enseignants.id_ens, id_cours varchar\n"
+            "\n"
+            "RELATIONS (cles etrangeres, a utiliser pour les jointures):\n"
+            "seances.id_ens -> enseignants.id_ens",
+        )
 
     @patch("NaturSQL.service.core.get_query_connection")
     def test_ask_database_generates_and_executes_sql(self, get_connection):
