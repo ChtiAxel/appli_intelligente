@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from NaturSQL.ollama_client.llm import Verification
 from NaturSQL.storage.users import User
 from NaturSQL.ui_gradio import build_app
 
@@ -38,12 +39,16 @@ async def test_every_authenticated_profile_can_ask_questions(application, role):
     with patch("NaturSQL.ui_gradio.ask_database", new_callable=AsyncMock) as ask, patch("NaturSQL.ui_gradio.LLMClient") as llm:
         ask.return_value = ("SELECT COUNT(*) AS nombre FROM cours", [{"nombre": 2}])
         llm.return_value.summarize_results = AsyncMock(return_value=summary)
+        llm.return_value.verify_answer = AsyncMock(return_value=Verification(True))
         replies = [reply async for reply in event.fn(user, history, 1)]
     ask.assert_awaited_once_with("Combien de cours ?")
     llm.return_value.summarize_results.assert_awaited_once_with("Combien de cours ?", [{"nombre": 2}])
+    # Étape de vérification : question, réponse générée et données brutes.
+    llm.return_value.verify_answer.assert_awaited_once_with("Combien de cours ?", summary, [{"nombre": 2}])
     assert replies[-1][0][-1]["role"] == "assistant"
     content = replies[-1][0][-1]["content"]
     assert summary in content
+    assert "Réponse vérifiée" in content
     assert "| Nombre |" in content
     # Le SQL est toujours enregistré : le mode « Sans SQL » le masque à l'affichage (CSS).
     assert "```sql" in content
@@ -123,6 +128,7 @@ async def test_late_answer_does_not_overwrite_new_conversation(app_and_storage):
     event = callback(app, "bot_respond")
     with patch("NaturSQL.ui_gradio.ask_database", side_effect=answer_after_new_conversation), patch("NaturSQL.ui_gradio.LLMClient") as llm:
         llm.return_value.summarize_results = AsyncMock(return_value="Synthèse.")
+        llm.return_value.verify_answer = AsyncMock(return_value=Verification(True))
         replies = [reply async for reply in event.fn(user, history, 1, request)]
     chatbot_update, conv_id_update = replies[-1][0], replies[-1][1]
     assert isinstance(chatbot_update, dict)  # gr.update() : discussion affichée inchangée

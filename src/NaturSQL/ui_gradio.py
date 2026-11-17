@@ -16,7 +16,14 @@ from typing import Optional, Any
 from .service.auth import AuthService, get_role_label, UserRole, ROLE_LABELS
 from .storage.conversations import ConversationStorage
 from .storage.users import User
-from .service.core import ask_database
+from .service.core import (
+    VERIFICATION_CORRECTED,
+    VERIFICATION_FAILED,
+    VERIFICATION_OK,
+    VERIFICATION_UNAVAILABLE,
+    ask_database,
+    summarize_and_verify,
+)
 from .service.monitoring import get_system_status
 from .ollama_client.llm import LLMClient
 
@@ -1179,17 +1186,37 @@ def _sql_block(sql: str) -> str:
     return f"```sql\n{chr(10).join(code_lines)}\n```"
 
 
-def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False, summary: str | None = None) -> str:
-    """Format query, French synthesis, and SQL results table into Markdown."""
+def _verification_note(verification) -> str | None:
+    """Ligne affichée sous la synthèse selon le verdict du vérificateur."""
+    status = getattr(verification, "status", None)
+    detail = html.escape(getattr(verification, "detail", "") or "")
+    if status == VERIFICATION_OK:
+        return "*✔ Réponse vérifiée : cohérente avec les données obtenues.*"
+    if status == VERIFICATION_CORRECTED:
+        return "*✔ Réponse vérifiée après correction d'une incohérence avec les données.*"
+    if status == VERIFICATION_FAILED:
+        suffix = f" ({detail})" if detail else ""
+        return f"*⚠ Attention : la vérification a relevé une incohérence possible avec les données{suffix}. Fiez-vous au tableau.*"
+    if status == VERIFICATION_UNAVAILABLE:
+        return "*Vérification de la réponse indisponible : fiez-vous au tableau.*"
+    return None
+
+
+def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False, summary: str | None = None, verification=None) -> str:
+    """Format query, French synthesis, verification note and SQL results table into Markdown."""
     if not sql and not results:
         return "Desole, je n'ai pas pu comprendre la demande ou aucune donnee n'a ete trouvee."
-    
+
     md_parts = []
     if sql and not simplified:
         md_parts.append(_sql_block(sql))
 
     if summary:
         md_parts.append(summary.strip())
+
+    note = _verification_note(verification)
+    if note:
+        md_parts.append(note)
 
     if results:
         headers = list(results[0].keys())
@@ -1860,13 +1887,16 @@ def build_app():
             csv_file = None
             try:
                 sql_str, results = await ask_database(user_msg)
+                verification = None
                 try:
-                    summary = await LLMClient().summarize_results(user_msg, results)
+                    # Synthèse puis vérification de sa cohérence avec les données brutes.
+                    answer = await summarize_and_verify(user_msg, results, LLMClient())
+                    summary, verification = answer.summary, answer
                 except Exception:
                     # Preserve useful data even if the second Ollama call fails.
                     summary = "Les résultats sont disponibles ci-dessous, mais la synthèse est temporairement indisponible."
                 # Le SQL est toujours inclus : le mode « Sans SQL » le masque à l'affichage.
-                bot_md = _format_bot_response(sql_str, results, summary=summary)
+                bot_md = _format_bot_response(sql_str, results, summary=summary, verification=verification)
                 await asyncio.to_thread(conv_storage.add_message, cid, "assistant", bot_md, sql_str)
                 if results:
                     csv_file = create_results_csv(results)

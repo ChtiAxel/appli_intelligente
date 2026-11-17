@@ -39,9 +39,15 @@ class AsyncOllamaClient:
         system: Optional[str] = None,
         options: Optional[Mapping[str, Any]] = None,
         think: Optional[bool] = None,
+        format: Optional[str] = None,
     ) -> str:
-        """Envoie un prompt (stream=false) et retourne le texte généré."""
+        """Envoie un prompt (stream=false) et retourne le texte généré.
+
+        ``format="json"`` demande à Ollama une sortie JSON valide.
+        """
         body: dict[str, Any] = {"model": self.model, "prompt": prompt, "stream": False}
+        if format is not None:
+            body["format"] = format
         if self.keep_alive is not None:
             body["keep_alive"] = self.keep_alive
         if think is not None:
