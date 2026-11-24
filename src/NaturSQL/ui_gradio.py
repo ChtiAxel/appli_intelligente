@@ -62,6 +62,55 @@ force_light_mode_js = """
 function() {
     document.body.classList.remove('dark');
 
+    // --- Bouton « œil » : afficher / masquer le mot de passe (tous les champs mot de passe) ---
+    // Par défaut l'œil est barré (mot de passe masqué) ; un clic affiche le texte.
+    if (!window.__nsqlEyeButtons) {
+        window.__nsqlEyeButtons = true;
+        const svg = (inner) =>
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+            'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+        const EYE_CROSSED = svg(
+            '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>' +
+            '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>' +
+            '<path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>');
+        const EYE_OPEN = svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>');
+        const paintEye = (button, visible) => {
+            button.innerHTML = visible ? EYE_OPEN : EYE_CROSSED;
+            const label = visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe';
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+            button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        };
+        const addEyeButtons = () => {
+            document.querySelectorAll('input[type="password"]:not([data-nsql-eye])').forEach((input) => {
+                const host = input.parentElement;
+                if (!host) return;
+                input.setAttribute('data-nsql-eye', '1');
+                host.querySelectorAll(':scope > .nsql-eye-btn').forEach((old) => old.remove());
+                host.classList.add('nsql-eye-host');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'nsql-eye-btn';
+                paintEye(button, false);
+                // Garde le curseur dans le champ quand on clique sur l'œil.
+                button.addEventListener('mousedown', (e) => e.preventDefault());
+                button.addEventListener('click', () => {
+                    const show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    paintEye(button, show);
+                });
+                input.insertAdjacentElement('afterend', button);
+            });
+        };
+        let eyeScheduled = false;
+        new MutationObserver(() => {
+            if (eyeScheduled) return;
+            eyeScheduled = true;
+            requestAnimationFrame(() => { eyeScheduled = false; addEyeButtons(); });
+        }).observe(document.body, {childList: true, subtree: true});
+        addEyeButtons();
+    }
+
     // --- Historique des conversations : clic, menu « ⋯ », renommage, suppression ---
     // Les actions sont transmises au serveur via un champ texte et un bouton cachés.
     const sendConvAction = (payload) => {
@@ -523,6 +572,32 @@ body.nsql-sidebar-hidden #conv-sidebar {
     gap: 6px;
     margin-top: 6px;
 }
+/* Bouton « œil » des champs mot de passe */
+.nsql-eye-host { position: relative; }
+.nsql-eye-host input[data-nsql-eye] { padding-right: 44px !important; }
+.nsql-eye-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    width: 30px;
+    height: 30px;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 6px;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #6b7280;
+    cursor: pointer;
+}
+.nsql-eye-btn:hover, .nsql-eye-btn:focus-visible { color: #111827; background: #f3f4f6 !important; }
+.nsql-eye-btn svg { width: 18px; height: 18px; display: block; }
 /* Corbeille native (« Effacer la conversation ») du Chatbot supprimée */
 #conv-chat .icon-button-wrapper.top-panel { display: none !important; }
 /* Mode « Sans SQL » : les blocs SQL sont masqués à l'affichage uniquement */
