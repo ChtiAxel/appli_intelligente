@@ -133,6 +133,37 @@ class LLMClient:
         raise OllamaResponseError(
             "L'IA n'a renvoyé aucune requête SQL après deux tentatives. Veuillez réessayer."
         )
+
+    async def generate_sql_correction(
+        self,
+        question: str,
+        previous_sql: str,
+        feedback: str,
+        schema: str,
+    ) -> str:
+        """Génère une requête SQL corrigée en prenant en compte la critique de l'utilisateur."""
+        prompt = (
+            f"Schema autorise:\n{schema}\n\n"
+            f"Question initiale de l'utilisateur:\n{question}\n\n"
+            f"Requete SQL precedente (jugee incorrecte ou incomplete):\n{previous_sql}\n\n"
+            f"Remarque / correction demandee par l'utilisateur:\n{feedback}\n\n"
+            "Consigne: En tenant compte de la remarque de l'utilisateur et du schema autorise, "
+            "genere la nouvelle requete SQL corrigee. "
+            "Retourne uniquement le SQL SELECT/WITH sans markdown ni explication."
+        )
+        for _ in range(2):
+            response = await self.client.generate(
+                prompt,
+                system=SQL_SYSTEM_PROMPT,
+                options={"temperature": 0, "num_predict": -1},
+                think=False,
+            )
+            sql = _strip_markdown_fence(response)
+            if sql:
+                return sql
+        raise OllamaResponseError(
+            "L'IA n'a renvoyé aucune requête SQL corrigée après deux tentatives. Veuillez réessayer."
+        )
     async def summarize_results(
         self,
         question: str,

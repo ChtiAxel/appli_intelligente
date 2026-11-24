@@ -36,6 +36,18 @@ class Message:
     created_at: datetime
 
 
+@dataclass
+class Feedback:
+    """A user feedback entry for a message or conversation."""
+
+    id: int
+    conversation_id: int
+    message_id: Optional[int]
+    rating: int
+    comment: Optional[str]
+    created_at: datetime
+
+
 class ConversationStorage:
     """Read/write access to ``conversations`` and ``messages`` tables."""
 
@@ -63,6 +75,22 @@ class ConversationStorage:
                     created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (conversation_id)
                         REFERENCES conversations(id) ON DELETE CASCADE
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS message_feedbacks (
+                    id               INT AUTO_INCREMENT PRIMARY KEY,
+                    conversation_id  INT          NOT NULL,
+                    message_id       INT          NULL,
+                    rating           TINYINT      NOT NULL,
+                    comment          TEXT         NULL,
+                    created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (conversation_id)
+                        REFERENCES conversations(id) ON DELETE CASCADE,
+                    FOREIGN KEY (message_id)
+                        REFERENCES messages(id) ON DELETE CASCADE
                 )
                 """
             )
@@ -177,6 +205,61 @@ class ConversationStorage:
         with db.transaction() as cursor:
             cursor.execute("DELETE FROM conversations WHERE nom_util = %s", (nom_util,))
             return cursor.rowcount > 0
+
+    def add_feedback(
+        self,
+        conversation_id: int,
+        rating: int,
+        message_id: Optional[int] = None,
+        comment: Optional[str] = None,
+    ) -> int:
+        """Record user feedback (rating: +1 or -1, optional comment) for a message/conversation."""
+        with db.transaction() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO message_feedbacks
+                    (conversation_id, message_id, rating, comment)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (conversation_id, message_id, rating, comment),
+            )
+            return cursor.lastrowid
+
+    def get_feedbacks(self, conversation_id: int) -> list[Feedback]:
+        """Get all feedbacks recorded for a conversation."""
+        with db.transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT id, conversation_id, message_id, rating, comment, created_at
+                FROM message_feedbacks
+                WHERE conversation_id = %s
+                ORDER BY created_at ASC
+                """,
+                (conversation_id,),
+            )
+            rows = cursor.fetchall()
+        return [Feedback(**row) for row in rows]
+
+    def get_last_exchange(
+        self, conversation_id: int
+    ) -> tuple[Optional[Message], Optional[Message]]:
+        """Return (original_user_message, last_assistant_message) before any trailing correction."""
+        messages = self.get_messages(conversation_id)
+        last_assistant: Optional[Message] = None
+        assistant_index = -1
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i].role == "assistant":
+                last_assistant = messages[i]
+                assistant_index = i
+                break
+        if last_assistant is None:
+            return None, None
+        original_user: Optional[Message] = None
+        for i in range(assistant_index - 1, -1, -1):
+            if messages[i].role == "user":
+                original_user = messages[i]
+                break
+        return original_user, last_assistant
     def get_user_activity_stats(self, nom_util: str) -> dict[str, int]:
         """Retrieve activity counts (total conversations and total user questions) for a user."""
         with db.transaction() as cursor:
