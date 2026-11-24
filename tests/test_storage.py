@@ -123,6 +123,32 @@ class StorageTests(unittest.TestCase):
         self.assertTrue(storage.delete_all_conversations("dupont.jean"))
 
     @patch("NaturSQL.storage.conversations.db.transaction")
+    def test_feedback_storage_and_last_exchange(self, transaction):
+        now = datetime.now()
+        cursor = FakeCursor([{"id": 1, "conversation_id": 10, "message_id": 2, "rating": -1, "comment": "Erreur", "created_at": now}])
+        transaction.side_effect = lambda: fake_transaction(cursor)
+        storage = ConversationStorage()
+
+        feedback_id = storage.add_feedback(10, -1, message_id=2, comment="Erreur")
+        self.assertEqual(feedback_id, 1)
+
+        feedbacks = storage.get_feedbacks(10)
+        self.assertEqual(len(feedbacks), 1)
+        self.assertEqual(feedbacks[0].rating, -1)
+        self.assertEqual(feedbacks[0].comment, "Erreur")
+
+        cursor.rows = [
+            {"id": 1, "conversation_id": 10, "role": "user", "content": "Question 1", "sql_generated": None, "created_at": now},
+            {"id": 2, "conversation_id": 10, "role": "assistant", "content": "Reponse 1", "sql_generated": "SELECT 1", "created_at": now},
+            {"id": 3, "conversation_id": 10, "role": "user", "content": "[Correction demandée] : precision", "sql_generated": None, "created_at": now},
+        ]
+        u_msg, a_msg = storage.get_last_exchange(10)
+        self.assertIsNotNone(u_msg)
+        self.assertIsNotNone(a_msg)
+        self.assertEqual(u_msg.content, "Question 1")
+        self.assertEqual(a_msg.sql_generated, "SELECT 1")
+
+    @patch("NaturSQL.storage.conversations.db.transaction")
     def test_get_full_user_history_uses_one_query(self, transaction):
         now = datetime.now()
         cursor = FakeCursor(

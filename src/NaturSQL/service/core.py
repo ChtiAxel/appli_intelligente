@@ -200,6 +200,29 @@ async def ask_database(question: str, llm: LLMClient | None = None) -> tuple[str
     return sql, rows
 
 
+async def ask_database_correction(
+    question: str,
+    previous_sql: str,
+    feedback: str,
+    llm: LLMClient | None = None,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Correct a previous SQL query using user feedback and execute it safely."""
+    if not feedback or not feedback.strip():
+        raise ValueError("Le retour utilisateur ne peut pas etre vide.")
+    client = llm or LLMClient()
+    schema = await asyncio.to_thread(database_schema)
+    sql = validate_read_only_sql(
+        await client.generate_sql_correction(
+            question=question.strip(),
+            previous_sql=previous_sql.strip(),
+            feedback=feedback.strip(),
+            schema=schema,
+        )
+    )
+    rows = await asyncio.to_thread(execute_query, sql)
+    return sql, rows
+
+
 VERIFICATION_OK = "verifiee"
 VERIFICATION_CORRECTED = "corrigee"
 VERIFICATION_FAILED = "incoherente"

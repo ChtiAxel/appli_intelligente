@@ -22,6 +22,7 @@ from .service.core import (
     VERIFICATION_OK,
     VERIFICATION_UNAVAILABLE,
     ask_database,
+    ask_database_correction,
     summarize_and_verify,
 )
 from .service.monitoring import get_system_status
@@ -507,9 +508,15 @@ body.nsql-sidebar-hidden #conv-sidebar {
     overflow-y: auto;
     margin-bottom: 16px;
 }
-.message-buttons { display: none !important; }
-.message-row .button-wrap { display: none !important; }
-.message-wrap .message-row button { display: none !important; }
+/* Affichage propre des boutons de feedback (pouce haut / bas) sur les réponses de l'IA */
+#conv-chat .message-buttons-user { display: none !important; }
+#conv-chat .message-buttons {
+    display: flex !important;
+    flex-direction: row-reverse !important;
+    justify-content: flex-end !important;
+    gap: 6px;
+    margin-top: 6px;
+}
 /* Corbeille native (« Effacer la conversation ») du Chatbot supprimée */
 #conv-chat .icon-button-wrapper.top-panel { display: none !important; }
 /* Mode « Sans SQL » : les blocs SQL sont masqués à l'affichage uniquement */
@@ -598,6 +605,34 @@ body.nsql-hide-sql #conv-chat .code_wrap:has(code.language-sql) { display: none 
     color: white !important;
     border: none !important;
     flex: 0 0 36px !important;
+}
+/* Encadré de feedback utilisateur pour correction */
+#feedback-box-row {
+    position: relative;
+    border: 1px solid #f59e0b;
+    border-radius: 16px;
+    background: #fffbeb;
+    padding: 6px 12px;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px !important;
+}
+#feedback-box-row .feedback-btn {
+    background: #d97706 !important;
+    color: white !important;
+    border-radius: 12px !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    padding: 4px 12px !important;
+    border: none !important;
+}
+#feedback-box-row .cancel-btn {
+    background: transparent !important;
+    color: #92400e !important;
+    border: none !important;
+    font-size: 1.1rem !important;
+    cursor: pointer !important;
+    padding: 0 6px !important;
 }
 .sidebar-header {
     display: flex;
@@ -1497,10 +1532,19 @@ def build_app():
                         elem_id="conv-chat",
                         show_label=False,
                         buttons=[],
-                        feedback_options=None,
+                        feedback_options=("Like", "Dislike"),
                         # Message de bienvenue : affiché tant que la discussion est vide
                         placeholder=_welcome_banner_html(),
                     )
+                    with gr.Row(elem_id="feedback-box-row", visible=False) as feedback_box:
+                        feedback_input = gr.Textbox(
+                            placeholder="Expliquez ce qui ne va pas pour relancer une génération corrigée...",
+                            show_label=False,
+                            container=False,
+                            scale=8,
+                        )
+                        feedback_send_btn = gr.Button("Corriger", elem_classes=["feedback-btn"], scale=1)
+                        feedback_cancel_btn = gr.Button("✕", elem_classes=["cancel-btn"], scale=0)
                     with gr.Row(elem_id="conv-input-row"):
                         chat_input = gr.Textbox(
                             placeholder="Posez votre question sur les enseignements...",
@@ -1886,11 +1930,31 @@ def build_app():
 
             csv_file = None
             try:
-                sql_str, results = await ask_database(user_msg)
+                is_correction = user_msg.startswith("[Correction demandée] :")
+                last_user, last_assistant = (None, None)
+                if is_correction and cid:
+                    feedback_text = user_msg.replace("[Correction demandée] :", "").strip()
+                    last_user, last_assistant = await asyncio.to_thread(conv_storage.get_last_exchange, cid)
+                    if last_user and last_assistant and last_assistant.sql_generated:
+                        sql_str, results = await ask_database_correction(
+                            question=last_user.content,
+                            previous_sql=last_assistant.sql_generated,
+                            feedback=feedback_text,
+                        )
+                    else:
+                        sql_str, results = await ask_database(user_msg)
+                else:
+                    sql_str, results = await ask_database(user_msg)
+
                 verification = None
                 try:
                     # Synthèse puis vérification de sa cohérence avec les données brutes.
-                    answer = await summarize_and_verify(user_msg, results, LLMClient())
+                    eval_question = (
+                        f"{last_user.content} (précision: {feedback_text})"
+                        if (is_correction and last_user)
+                        else user_msg
+                    )
+                    answer = await summarize_and_verify(eval_question, results, LLMClient())
                     summary, verification = answer.summary, answer
                 except Exception:
                     # Preserve useful data even if the second Ollama call fails.
@@ -1941,14 +2005,78 @@ def build_app():
                 concurrency_limit=None,
             )
 
+        def on_chatbot_feedback(like_data: gr.LikeData, current_cid):
+            is_liked = like_data.liked is True or like_data.liked == "Like"
+            if current_cid is not None:
+                rating = 1 if is_liked else -1
+                conv_storage.add_feedback(conversation_id=current_cid, rating=rating)
+            if is_liked:
+                gr.Info("Merci pour votre retour !")
+                return gr.update(visible=False), gr.update(value="")
+            else:
+                gr.Info("Précisez l'erreur dans l'encadré ci-dessous pour relancer une génération corrigée.")
+                return gr.update(visible=True), gr.update(value="")
+
+        chatbot.like(
+            on_chatbot_feedback,
+            inputs=[current_conv_id],
+            outputs=[feedback_box, feedback_input],
+            show_progress="hidden",
+        )
+
+        def add_feedback_msg(feedback_text, history, current_cid, request: gr.Request = None):
+            if not feedback_text or not feedback_text.strip():
+                raise gr.Error("Le message de correction ne peut pas être vide.")
+            view = _view(request)
+            if current_cid is not None and current_cid in view["pending"]:
+                raise gr.Error("Une réponse est déjà en cours de génération dans cette discussion.")
+            if current_cid is not None:
+                conv_storage.add_feedback(
+                    conversation_id=current_cid,
+                    rating=-1,
+                    comment=feedback_text.strip(),
+                )
+            formatted_msg = f"[Correction demandée] : {feedback_text.strip()}"
+            return (
+                gr.update(visible=False),
+                gr.update(value=""),
+                history + [{"role": "user", "content": formatted_msg}, {"role": "assistant", "content": TYPING_HTML}],
+            )
+
+        def cancel_feedback():
+            return gr.update(visible=False), gr.update(value="")
+
+        feedback_cancel_btn.click(
+            cancel_feedback,
+            outputs=[feedback_box, feedback_input],
+            show_progress="hidden",
+        )
+
+        for trigger in (feedback_input.submit, feedback_send_btn.click):
+            trigger(
+                add_feedback_msg,
+                inputs=[feedback_input, chatbot, current_conv_id],
+                outputs=[feedback_box, feedback_input, chatbot],
+                show_progress="hidden",
+                trigger_mode="multiple",
+                concurrency_limit=None,
+            ).success(
+                bot_respond,
+                inputs=[session_user, chatbot, current_conv_id],
+                outputs=[chatbot, current_conv_id, conv_list_html, csv_download_btn],
+                show_progress="hidden",
+                trigger_mode="multiple",
+                concurrency_limit=None,
+            )
+
         def do_new_conversation(user, request: gr.Request = None):
             _set_view(request, None)
-            return [], None, _conv_list_html(_owned_conversations(user)), gr.update(value=None, interactive=False)
+            return [], None, _conv_list_html(_owned_conversations(user)), gr.update(value=None, interactive=False), gr.update(visible=False)
 
         new_chat_btn.click(
             do_new_conversation,
             inputs=[session_user],
-            outputs=[chatbot, current_conv_id, conv_list_html, csv_download_btn],
+            outputs=[chatbot, current_conv_id, conv_list_html, csv_download_btn, feedback_box],
             show_progress="hidden",
         )
 
