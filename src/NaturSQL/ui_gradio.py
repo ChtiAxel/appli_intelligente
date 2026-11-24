@@ -17,11 +17,17 @@ from .service.auth import AuthService, get_role_label, UserRole, ROLE_LABELS
 from .storage.conversations import ConversationStorage
 from .storage.users import User
 from .service.core import (
+    SQL_CHECK_AMBIGUOUS,
+    SQL_CHECK_ARBITRATED,
+    SQL_CHECK_CONCORDANT,
+    SQL_CHECK_CORRECTED,
+    SQL_CHECK_SINGLE,
+    SQL_CHECK_UNRESOLVED,
     VERIFICATION_CORRECTED,
     VERIFICATION_FAILED,
     VERIFICATION_OK,
     VERIFICATION_UNAVAILABLE,
-    ask_database,
+    ask_database_checked,
     ask_database_correction,
     summarize_and_verify,
 )
@@ -1237,8 +1243,32 @@ def _verification_note(verification) -> str | None:
     return None
 
 
-def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False, summary: str | None = None, verification=None) -> str:
-    """Format query, French synthesis, verification note and SQL results table into Markdown."""
+def _sql_check_note(sql_check) -> str | None:
+    """Ligne affichée selon le contrôle de la requête (double génération A/B)."""
+    status = getattr(sql_check, "status", None)
+    detail = html.escape(getattr(sql_check, "detail", "") or "")
+    suffix = f" ({detail})" if detail else ""
+    if status == SQL_CHECK_CONCORDANT:
+        return "*✔ Requête contrôlée : deux requêtes écrites indépendamment donnent le même résultat.*"
+    if status == SQL_CHECK_ARBITRATED:
+        return f"*✔ Requête contrôlée : deux requêtes donnaient des résultats différents, la plus juste a été retenue{suffix}.*"
+    if status == SQL_CHECK_CORRECTED:
+        return f"*✔ Requête corrigée après comparaison de deux requêtes différentes{suffix}.*"
+    if status == SQL_CHECK_AMBIGUOUS:
+        clarification = html.escape(getattr(sql_check, "clarification", "") or "")
+        return (
+            f"**Votre question peut se comprendre de plusieurs façons.** {clarification}\n\n"
+            "*Le résultat ci-dessous correspond à une seule interprétation : précisez votre question si besoin.*"
+        )
+    if status == SQL_CHECK_SINGLE:
+        return f"*⚠ Requête non contrôlée{suffix} : fiez-vous au résultat avec prudence.*"
+    if status == SQL_CHECK_UNRESOLVED:
+        return "*⚠ Deux requêtes donnent des résultats différents et le contrôle n'a pas pu trancher : vérifiez le résultat.*"
+    return None
+
+
+def _format_bot_response(sql: str | None, results: list[dict] | None, simplified: bool = False, summary: str | None = None, verification=None, sql_check=None) -> str:
+    """Format query, French synthesis, check notes and SQL results table into Markdown."""
     if not sql and not results:
         return "Desole, je n'ai pas pu comprendre la demande ou aucune donnee n'a ete trouvee."
 
@@ -1246,8 +1276,16 @@ def _format_bot_response(sql: str | None, results: list[dict] | None, simplified
     if sql and not simplified:
         md_parts.append(_sql_block(sql))
 
+    check_note = _sql_check_note(sql_check)
+    if check_note and getattr(sql_check, "status", None) == SQL_CHECK_AMBIGUOUS:
+        md_parts.append(check_note)  # la demande de précision passe avant la synthèse
+        check_note = None
+
     if summary:
         md_parts.append(summary.strip())
+
+    if check_note:
+        md_parts.append(check_note)
 
     note = _verification_note(verification)
     if note:
@@ -1932,6 +1970,7 @@ def build_app():
             try:
                 is_correction = user_msg.startswith("[Correction demandée] :")
                 last_user, last_assistant = (None, None)
+                sql_check = None  # contrôle A/B : seulement pour une question normale
                 if is_correction and cid:
                     feedback_text = user_msg.replace("[Correction demandée] :", "").strip()
                     last_user, last_assistant = await asyncio.to_thread(conv_storage.get_last_exchange, cid)
@@ -1942,9 +1981,13 @@ def build_app():
                             feedback=feedback_text,
                         )
                     else:
-                        sql_str, results = await ask_database(user_msg)
+                        sql_check = await ask_database_checked(user_msg)
+                        sql_str, results = sql_check.sql, sql_check.rows
                 else:
-                    sql_str, results = await ask_database(user_msg)
+                    # Deux requêtes indépendantes (A : structure seule, B : avec valeurs réelles),
+                    # comparaison des résultats, arbitrage si désaccord. Lecture seule stricte.
+                    sql_check = await ask_database_checked(user_msg)
+                    sql_str, results = sql_check.sql, sql_check.rows
 
                 verification = None
                 try:
@@ -1960,7 +2003,7 @@ def build_app():
                     # Preserve useful data even if the second Ollama call fails.
                     summary = "Les résultats sont disponibles ci-dessous, mais la synthèse est temporairement indisponible."
                 # Le SQL est toujours inclus : le mode « Sans SQL » le masque à l'affichage.
-                bot_md = _format_bot_response(sql_str, results, summary=summary, verification=verification)
+                bot_md = _format_bot_response(sql_str, results, summary=summary, verification=verification, sql_check=sql_check)
                 await asyncio.to_thread(conv_storage.add_message, cid, "assistant", bot_md, sql_str)
                 if results:
                     csv_file = create_results_csv(results)

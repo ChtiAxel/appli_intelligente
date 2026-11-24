@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from NaturSQL.ollama_client.llm import Verification
+from NaturSQL.service.core import SQL_CHECK_CONCORDANT, CheckedQuery
 from NaturSQL.storage.users import User
 from NaturSQL.ui_gradio import build_app
 
@@ -36,8 +37,8 @@ async def test_every_authenticated_profile_can_ask_questions(application, role):
     history = [{"role": "user", "content": "Combien de cours ?"}]
     event = callback(application, "bot_respond")
     summary = "La base contient 2 cours."
-    with patch("NaturSQL.ui_gradio.ask_database", new_callable=AsyncMock) as ask, patch("NaturSQL.ui_gradio.LLMClient") as llm:
-        ask.return_value = ("SELECT COUNT(*) AS nombre FROM cours", [{"nombre": 2}])
+    with patch("NaturSQL.ui_gradio.ask_database_checked", new_callable=AsyncMock) as ask, patch("NaturSQL.ui_gradio.LLMClient") as llm:
+        ask.return_value = CheckedQuery("SELECT COUNT(*) AS nombre FROM cours", [{"nombre": 2}], SQL_CHECK_CONCORDANT)
         llm.return_value.summarize_results = AsyncMock(return_value=summary)
         llm.return_value.verify_answer = AsyncMock(return_value=Verification(True))
         replies = [reply async for reply in event.fn(user, history, 1)]
@@ -49,6 +50,7 @@ async def test_every_authenticated_profile_can_ask_questions(application, role):
     content = replies[-1][0][-1]["content"]
     assert summary in content
     assert "Réponse vérifiée" in content
+    assert "deux requêtes écrites indépendamment donnent le même résultat" in content
     assert "| Nombre |" in content
     # Le SQL est toujours enregistré : le mode « Sans SQL » le masque à l'affichage (CSS).
     assert "```sql" in content
@@ -59,8 +61,8 @@ async def test_summary_failure_preserves_query_results(application):
     user = User("Jean", "Dupont", "hash")
     history = [{"role": "user", "content": "Combien de cours ?"}]
     event = callback(application, "bot_respond")
-    with patch("NaturSQL.ui_gradio.ask_database", new_callable=AsyncMock) as ask, patch("NaturSQL.ui_gradio.LLMClient") as llm:
-        ask.return_value = ("SELECT COUNT(*) AS nombre FROM cours", [{"nombre": 2}])
+    with patch("NaturSQL.ui_gradio.ask_database_checked", new_callable=AsyncMock) as ask, patch("NaturSQL.ui_gradio.LLMClient") as llm:
+        ask.return_value = CheckedQuery("SELECT COUNT(*) AS nombre FROM cours", [{"nombre": 2}], SQL_CHECK_CONCORDANT)
         llm.return_value.summarize_results = AsyncMock(side_effect=RuntimeError("Ollama indisponible"))
         replies = [reply async for reply in event.fn(user, history, 1)]
     content = replies[-1][0][-1]["content"]
@@ -123,10 +125,10 @@ async def test_late_answer_does_not_overwrite_new_conversation(app_and_storage):
 
     async def answer_after_new_conversation(question):
         ui_gradio._set_view(request, None)  # l'utilisateur clique sur « Nouvelle conversation »
-        return "SELECT 1", [{"n": 1}]
+        return CheckedQuery("SELECT 1", [{"n": 1}], SQL_CHECK_CONCORDANT)
 
     event = callback(app, "bot_respond")
-    with patch("NaturSQL.ui_gradio.ask_database", side_effect=answer_after_new_conversation), patch("NaturSQL.ui_gradio.LLMClient") as llm:
+    with patch("NaturSQL.ui_gradio.ask_database_checked", side_effect=answer_after_new_conversation), patch("NaturSQL.ui_gradio.LLMClient") as llm:
         llm.return_value.summarize_results = AsyncMock(return_value="Synthèse.")
         llm.return_value.verify_answer = AsyncMock(return_value=Verification(True))
         replies = [reply async for reply in event.fn(user, history, 1, request)]
