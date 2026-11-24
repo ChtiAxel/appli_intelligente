@@ -527,6 +527,8 @@ body.nsql-sidebar-hidden #conv-sidebar {
 #conv-chat .icon-button-wrapper.top-panel { display: none !important; }
 /* Mode « Sans SQL » : les blocs SQL sont masqués à l'affichage uniquement */
 body.nsql-hide-sql #conv-chat .code_wrap:has(code.language-sql) { display: none !important; }
+/* … et les confirmations « Requête contrôlée » / « Réponse vérifiée » (pas les avertissements) */
+body.nsql-hide-sql #conv-chat .nsql-check-note { display: none !important; }
 /* Indicateur « l'IA rédige sa réponse » (message temporaire) */
 .typing-indicator {
     display: inline-flex;
@@ -1227,14 +1229,31 @@ def _sql_block(sql: str) -> str:
     return f"```sql\n{chr(10).join(code_lines)}\n```"
 
 
+def _quiet_note(text: str) -> str:
+    """Ligne de confirmation « ✔ » : masquée côté navigateur en mode « Sans SQL » (classe nsql-check-note).
+
+    `text` est déjà échappé. Les avertissements « ⚠ » et la demande de précision ne
+    passent pas par ici : ils restent toujours visibles.
+    """
+    return f'<p class="nsql-check-note"><em>{text}</em></p>'
+
+
+_LEGACY_CHECK_NOTE_RE = re.compile(r"(?m)^\*(✔ [^\n]*)\*[ \t]*$")
+
+
+def _tag_check_notes(content: str) -> str:
+    """Marque les lignes « ✔ … » des anciens messages enregistrés sans la classe de masquage."""
+    return _LEGACY_CHECK_NOTE_RE.sub(lambda m: _quiet_note(m.group(1)), content)
+
+
 def _verification_note(verification) -> str | None:
     """Ligne affichée sous la synthèse selon le verdict du vérificateur."""
     status = getattr(verification, "status", None)
     detail = html.escape(getattr(verification, "detail", "") or "")
     if status == VERIFICATION_OK:
-        return "*✔ Réponse vérifiée : cohérente avec les données obtenues.*"
+        return _quiet_note("✔ Réponse vérifiée : cohérente avec les données obtenues.")
     if status == VERIFICATION_CORRECTED:
-        return "*✔ Réponse vérifiée après correction d'une incohérence avec les données.*"
+        return _quiet_note("✔ Réponse vérifiée après correction d'une incohérence avec les données.")
     if status == VERIFICATION_FAILED:
         suffix = f" ({detail})" if detail else ""
         return f"*⚠ Attention : la vérification a relevé une incohérence possible avec les données{suffix}. Fiez-vous au tableau.*"
@@ -1249,11 +1268,11 @@ def _sql_check_note(sql_check) -> str | None:
     detail = html.escape(getattr(sql_check, "detail", "") or "")
     suffix = f" ({detail})" if detail else ""
     if status == SQL_CHECK_CONCORDANT:
-        return "*✔ Requête contrôlée : deux requêtes écrites indépendamment donnent le même résultat.*"
+        return _quiet_note("✔ Requête contrôlée : deux requêtes écrites indépendamment donnent le même résultat.")
     if status == SQL_CHECK_ARBITRATED:
-        return f"*✔ Requête contrôlée : deux requêtes donnaient des résultats différents, la plus juste a été retenue{suffix}.*"
+        return _quiet_note(f"✔ Requête contrôlée : deux requêtes donnaient des résultats différents, la plus juste a été retenue{suffix}.")
     if status == SQL_CHECK_CORRECTED:
-        return f"*✔ Requête corrigée après comparaison de deux requêtes différentes{suffix}.*"
+        return _quiet_note(f"✔ Requête corrigée après comparaison de deux requêtes différentes{suffix}.")
     if status == SQL_CHECK_AMBIGUOUS:
         clarification = html.escape(getattr(sql_check, "clarification", "") or "")
         return (
@@ -1358,8 +1377,10 @@ def _history_from_messages(messages) -> list[dict]:
     history = []
     for m in messages:
         content = m.content
-        if m.role == "assistant" and m.sql_generated and "```sql" not in content:
-            content = f"{_sql_block(m.sql_generated)}\n\n{content}"
+        if m.role == "assistant":
+            content = _tag_check_notes(content)  # anciens messages : lignes « ✔ » masquables
+            if m.sql_generated and "```sql" not in content:
+                content = f"{_sql_block(m.sql_generated)}\n\n{content}"
         history.append({"role": m.role, "content": content})
     return history
 

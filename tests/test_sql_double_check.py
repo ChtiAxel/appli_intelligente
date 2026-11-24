@@ -343,3 +343,56 @@ def test_ambiguous_note_comes_before_the_summary_and_is_escaped():
 
 def test_no_note_without_check():
     assert ui_gradio._sql_check_note(None) is None
+
+
+# -- Mode « Sans SQL » : seules les confirmations « ✔ » sont masquables -------------------------------
+
+
+QUIET = 'class="nsql-check-note"'
+
+
+@pytest.mark.parametrize("status", [core.SQL_CHECK_CONCORDANT, core.SQL_CHECK_ARBITRATED, core.SQL_CHECK_CORRECTED])
+def test_check_confirmations_carry_the_hiding_class(status):
+    assert QUIET in ui_gradio._sql_check_note(core.CheckedQuery("SELECT 1", [], status))
+
+
+@pytest.mark.parametrize("status", [core.VERIFICATION_OK, core.VERIFICATION_CORRECTED])
+def test_verification_confirmations_carry_the_hiding_class(status):
+    assert QUIET in ui_gradio._verification_note(core.VerifiedAnswer("Synthèse.", status))
+
+
+@pytest.mark.parametrize("status", [core.SQL_CHECK_SINGLE, core.SQL_CHECK_UNRESOLVED, core.SQL_CHECK_AMBIGUOUS])
+def test_warnings_and_clarification_are_never_hidden(status):
+    check = core.CheckedQuery("SELECT 1", [], status, clarification="Précisez ?")
+    assert QUIET not in ui_gradio._sql_check_note(check)
+
+
+@pytest.mark.parametrize("status", [core.VERIFICATION_FAILED, core.VERIFICATION_UNAVAILABLE])
+def test_verification_warnings_are_never_hidden(status):
+    assert QUIET not in ui_gradio._verification_note(core.VerifiedAnswer("Synthèse.", status, "détail"))
+
+
+def test_hiding_css_rule_targets_the_notes():
+    assert "body.nsql-hide-sql #conv-chat .nsql-check-note" in ui_gradio.custom_css
+
+
+def test_legacy_messages_get_the_hiding_class_but_warnings_do_not():
+    legacy = (
+        "Synthèse.\n\n*✔ Requête contrôlée : deux requêtes donnent le même résultat.*\n\n"
+        "*✔ Réponse vérifiée : cohérente avec les données obtenues.*\n\n"
+        "*⚠ Attention : incohérence possible. Fiez-vous au tableau.*\n\n| A |\n|---|\n| 1 |"
+    )
+    tagged = ui_gradio._tag_check_notes(legacy)
+    assert tagged.count(QUIET) == 2
+    assert "*⚠ Attention : incohérence possible. Fiez-vous au tableau.*" in tagged
+    assert ui_gradio._tag_check_notes(tagged) == tagged  # sans effet une 2e fois
+
+
+def test_history_reload_tags_old_assistant_messages_only():
+    from types import SimpleNamespace
+
+    old = SimpleNamespace(role="assistant", content="*✔ Réponse vérifiée : ok.*", sql_generated="SELECT 1")
+    user = SimpleNamespace(role="user", content="*✔ voulu par l'utilisateur*", sql_generated=None)
+    history = ui_gradio._history_from_messages([user, old])
+    assert history[0]["content"] == "*✔ voulu par l'utilisateur*"
+    assert QUIET in history[1]["content"] and history[1]["content"].startswith("```sql")
