@@ -71,6 +71,23 @@ function() {
             if (item !== except) item.classList.remove('menu-open');
         });
     };
+    const positionMenu = (item, btn) => {
+        const menu = item.querySelector('.conv-menu');
+        if (!menu || !btn) return;
+        const btnRect = btn.getBoundingClientRect();
+        const menuWidth = menu.offsetWidth || 140;
+        const menuHeight = menu.offsetHeight || 76;
+        const left = Math.min(
+            window.innerWidth - menuWidth - 8,
+            Math.max(8, btnRect.right - menuWidth)
+        );
+        const fitsBelow = btnRect.bottom + 2 + menuHeight <= window.innerHeight - 8;
+        const top = fitsBelow
+            ? btnRect.bottom + 2
+            : Math.max(8, btnRect.top - menuHeight - 2);
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+    };
     const startRename = (item) => {
         const titleEl = item.querySelector('.conv-title');
         if (!titleEl || item.querySelector('.conv-rename-input')) return;
@@ -106,11 +123,13 @@ function() {
             const item = e.target.closest('.conv-item');
             if (!item) { closeMenus(null); return; }
             const actionBtn = e.target.closest('[data-conv-action]');
-            if (e.target.closest('.conv-menu-btn')) {
+            const menuBtn = e.target.closest('.conv-menu-btn');
+            if (menuBtn) {
                 e.stopPropagation();
                 const open = !item.classList.contains('menu-open');
                 closeMenus(item);
                 item.classList.toggle('menu-open', open);
+                if (open) positionMenu(item, menuBtn);
                 return;
             }
             if (actionBtn) {
@@ -137,6 +156,8 @@ function() {
             if (item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); item.click(); }
             if (e.key === 'Escape') closeMenus(null);
         });
+        document.addEventListener('scroll', () => closeMenus(null), true);
+        window.addEventListener('resize', () => closeMenus(null));
     }
 }
 """
@@ -488,12 +509,15 @@ body.nsql-sidebar-hidden #conv-sidebar {
 }
 #conv-sidebar {
     width: 260px;
+    flex: 0 0 260px;
     background: #fafafa;
     border-right: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
     padding: 16px;
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
 }
 #conv-main {
     flex-grow: 1;
@@ -658,11 +682,24 @@ body.nsql-hide-sql #conv-chat .code_wrap:has(code.language-sql) { display: none 
     background: #f3f4f6 !important;
 }
 /* --- Liste des conversations (HTML) --- */
-.conv-list {
-    flex-grow: 1;
-    overflow-y: auto;
-    min-height: 0;
+#conv-sidebar .block.conv-list {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+}
+#conv-sidebar .block.conv-list .prose {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
 }
 .conv-group-title {
     font-size: 12px;
@@ -748,10 +785,8 @@ body.nsql-hide-sql #conv-chat .code_wrap:has(code.language-sql) { display: none 
 }
 .conv-menu {
     display: none;
-    position: absolute;
-    right: 4px;
-    top: calc(100% - 2px);
-    z-index: 20;
+    position: fixed;
+    z-index: 9999;
     min-width: 140px;
     padding: 4px;
     background: #ffffff;
